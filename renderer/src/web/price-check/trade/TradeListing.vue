@@ -41,11 +41,11 @@
           </tr>
         </thead>
         <tbody style="overflow: scroll;">
-          <template v-for="(result, idx) in groupedResults">
+           <template v-for="(result, idx) in groupedResults">
             <tr v-if="!result" :key="idx">
               <td colspan="100" class="text-transparent">***</td>
             </tr>
-            <tr v-else :key="result.id">
+            <tr v-else :key="result.id" :tabindex="0">
               <td class="px-2 whitespace-nowrap">
                 <span :class="{ 'line-through': result.priceCurrency === 'exalted' }">{{ result.priceAmount }} {{ result.priceCurrency }}</span>
                 <span v-if="result.listedTimes > 2" class="rounded px-1 text-gray-800 bg-gray-400 ml-1 -mr-2"><span class="font-sans">×</span> {{ result.listedTimes }}</span>
@@ -79,8 +79,8 @@
     <template #name>{{ t(':error') }}</template>
     <p>Error: {{ error }}</p>
     <template #actions>
-      <button class="btn" @click="execSearch">{{ t('Retry') }}</button>
-      <button class="btn" @click="openTradeLink">{{ t('Browser') }}</button>
+      <button class="btn" @click="execSearch" :tabindex="0">{{ t('Retry') }}</button>
+      <button class="btn" @click="openTradeLink" :tabindex="0">{{ t('Browser') }}</button>
     </template>
   </ui-error-box>
 </template>

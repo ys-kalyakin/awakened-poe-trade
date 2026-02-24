@@ -54,7 +54,23 @@ export class FocusManager {
     return null
   }
 
+  private lastNavigateDirection: string | null = null
+  private lastNavigateTime: number = 0
+  private readonly NAVIGATE_DEBOUNCE_TIME = 150
+
   navigate (direction: Direction) {
+    const now = Date.now()
+    const elapsed = now - this.lastNavigateTime
+    const isSameDirection = this.lastNavigateDirection === direction
+
+    if (elapsed < this.NAVIGATE_DEBOUNCE_TIME && isSameDirection && this.lastNavigateDirection) {
+      console.log('[FocusManager] Navigation debounced:', direction, 'elapsed:', elapsed, 'time:', this.NAVIGATE_DEBOUNCE_TIME)
+      return
+    }
+
+    this.lastNavigateDirection = direction
+    this.lastNavigateTime = now
+
     const context = this.getCurrentContext()
     if (!context || context.elements.length === 0) return
 
@@ -64,108 +80,29 @@ export class FocusManager {
 
     switch (direction) {
       case 'up':
-        newIndex = this.moveUp(context)
+        newIndex--
         break
       case 'down':
-        newIndex = this.moveDown(context)
+        newIndex++
         break
       case 'left':
-        newIndex = this.moveLeft(context)
+        newIndex--
         break
       case 'right':
-        newIndex = this.moveRight(context)
+        newIndex++
         break
+    }
+
+    if (newIndex < 0) {
+      newIndex = 0
+    } else if (newIndex >= context.elements.length) {
+      newIndex = context.elements.length - 1
     }
 
     if (newIndex !== context.currentIndex) {
       this.setFocus(newIndex, context)
     }
   }
-
-  private moveUp (context: FocusContext): number {
-    const rect = context.elements[context.currentIndex]?.getBoundingClientRect()
-    if (!rect) return 0
-
-    let newIndex = context.currentIndex - 1
-    while (newIndex >= 0) {
-      const elementRect = context.elements[newIndex]?.getBoundingClientRect()
-      if (!elementRect) return 0
-
-      if (this.isAbove(rect, elementRect)) {
-        return newIndex
-      }
-      newIndex--
-    }
-    return 0
-  }
-
-  private moveDown (context: FocusContext): number {
-    const rect = context.elements[context.currentIndex]?.getBoundingClientRect()
-    if (!rect) return context.elements.length - 1
-
-    let newIndex = context.currentIndex + 1
-    while (newIndex < context.elements.length) {
-      const elementRect = context.elements[newIndex]?.getBoundingClientRect()
-      if (!elementRect) return context.elements.length - 1
-
-      if (this.isBelow(rect, elementRect)) {
-        return newIndex
-      }
-      newIndex++
-    }
-    return context.elements.length - 1
-  }
-
-  private moveLeft (context: FocusContext): number {
-    const rect = context.elements[context.currentIndex]?.getBoundingClientRect()
-    if (!rect) return 0
-
-    let newIndex = context.currentIndex - 1
-    while (newIndex >= 0) {
-      const elementRect = context.elements[newIndex]?.getBoundingClientRect()
-      if (!elementRect) return 0
-
-      if (this.isLeft(rect, elementRect)) {
-        return newIndex
-      }
-      newIndex--
-    }
-    return 0
-  }
-
-  private moveRight (context: FocusContext): number {
-    const rect = context.elements[context.currentIndex]?.getBoundingClientRect()
-    if (!rect) return context.elements.length - 1
-
-    let newIndex = context.currentIndex + 1
-    while (newIndex < context.elements.length) {
-      const elementRect = context.elements[newIndex]?.getBoundingClientRect()
-      if (!elementRect) return context.elements.length - 1
-
-      if (this.isRight(rect, elementRect)) {
-        return newIndex
-      }
-      newIndex++
-    }
-    return context.elements.length - 1
-  }
-
-  private isAbove (from: DOMRect, to: DOMRect): boolean {
-    return to.bottom <= from.top - 8
-  }
-
-  private isBelow (from: DOMRect, to: DOMRect): boolean {
-    return to.top >= from.bottom + 8
-  }
-
-  private isLeft (from: DOMRect, to: DOMRect): boolean {
-    return to.right <= from.left - 8
-  }
-
-  private isRight (from: DOMRect, to: DOMRect): boolean {
-    return to.left >= from.right + 8
-  }
-
   private setFocus (index: number, context: FocusContext) {
     context.currentIndex = index
     this.focusedElement.value = context.elements[index]
@@ -180,7 +117,6 @@ export class FocusManager {
       inline: 'nearest'
     })
   }
-
   private highlightElement (element: HTMLElement) {
     document.querySelectorAll('.gamepad-focused').forEach(el => {
       el.classList.remove('gamepad-focused')

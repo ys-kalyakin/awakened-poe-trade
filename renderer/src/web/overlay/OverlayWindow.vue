@@ -44,6 +44,7 @@ import { useLeagues } from '@/web/background/Leagues'
 import { handleLine } from '@/web/client-log/client-log'
 import { GamepadManager } from '@/web/gamepad'
 import { useFocusManager } from './FocusManager'
+import { MainProcess } from '@/web/background/IPC'
 
 type WMID = Widget['wmId']
 
@@ -64,6 +65,8 @@ export default defineComponent({
 
     const focusManager = useFocusManager()
     console.log('[Overlay] Focus manager initialized')
+
+    provide('focusManager', focusManager)
 
     onMounted(() => {
       nextTick(() => {
@@ -136,6 +139,18 @@ export default defineComponent({
             hide(w.wmId)
           }
         }
+      }
+    })
+
+    Host.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
+      console.log('[Overlay] Gamepad navigation event:', e.type)
+
+      const topmost = topmostOrExclusiveWidget.value
+      if (topmost.wmType === 'price-check') {
+        MainProcess.sendEvent({
+          name: 'MAIN->CLIENT::gamepad-navigation',
+          payload: { type: e.type }
+        })
       }
     })
     Host.onEvent('MAIN->OVERLAY::visibility', (e) => {
@@ -211,6 +226,18 @@ export default defineComponent({
         }
       }
       console.log('[Overlay] ====== WIDGET-ACTION EVENT END ======')
+    })
+
+    Host.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
+      console.log('[Overlay] Gamepad navigation event:', e.type)
+
+      const topmost = topmostOrExclusiveWidget.value
+      if (topmost.wmType === 'price-check') {
+        MainProcess.sendEvent({
+          name: 'MAIN->CLIENT::gamepad-navigation',
+          payload: { type: e.type }
+        })
+      }
     })
 
     Host.onEvent('MAIN->CLIENT::config-changed', (e: any) => {

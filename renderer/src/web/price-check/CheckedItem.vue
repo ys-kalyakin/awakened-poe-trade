@@ -1,5 +1,6 @@
 <template>
-  <div v-if="show" class="p-4 layout-column min-h-0">
+  <div v-if="show">
+    <div v-show="itemFilters" class="p-4 layout-column min-h-0">
     <filter-name
       :filters="itemFilters"
       :item="item" />
@@ -29,7 +30,7 @@
       :item="item" />
     <div v-if="!doSearch" class="flex justify-between items-center">
       <div class="flex w-40" @mouseenter="handleSearchMouseenter">
-        <button class="btn" @click="doSearch = true" style="min-width: 5rem;">{{ t('Search') }}</button>
+         <button class="btn" @click="doSearch = true" style="min-width: 5rem;" tabindex="0">{{ t('Search') }}</button>
       </div>
       <trade-links v-if="tradeAPI === 'trade'"
         :get-link="makeTradeLink" />
@@ -41,6 +42,7 @@
         <a href="https://poeprices.info" target="_blank" class="bg-gray-900 px-1 rounded">poeprices.info</a>
         <a href="https://poe.ninja/support" target="_blank" class="bg-gray-900 px-1 rounded">poe.ninja</a>
       </i18n-t>
+    </div>
     </div>
   </div>
 </template>
@@ -63,7 +65,10 @@ import { CATEGORY_TO_TRADE_ID, createTradeRequest } from './trade/pathofexile-tr
 import { AppConfig } from '@/web/Config'
 import { FilterPreset } from './filters/interfaces'
 import { PriceCheckWidget } from '../overlay/interfaces'
+import type { FocusManager } from '../overlay/FocusManager'
+import { MainProcess } from '@/web/background/IPC'
 import { useLeagues } from '@/web/background/Leagues'
+import { inject, onMounted } from 'vue'
 
 let _showSupportLinksCounter = 0
 
@@ -103,6 +108,68 @@ export default defineComponent({
     const tradeService = ref<{ execSearch(): void } | null>(null)
     // FiltersBlock.vue
     const filtersComponent = ref<ComponentPublicInstance>(null!)
+    const focusManager = inject<FocusManager>('focusManager')
+
+    if (focusManager) {
+      onMounted(() => {
+        console.log('[CheckedItem] onMounted called')
+
+        const findContainer = () => {
+          const el = document.querySelector('.p-4.layout-column.min-h-0') as HTMLElement
+          console.log('[CheckedItem] Found container:', el)
+          return el
+        }
+
+        const initFocusManager = () => {
+          nextTick(() => {
+            const container = findContainer()
+            if (container && container instanceof HTMLElement) {
+              console.log('[CheckedItem] Initializing FocusManager:', {
+                id: container.id,
+                class: container.className,
+                children: container.children.length,
+                childrenArray: Array.from(container.children).map((child, i) => ({
+                  tag: child.tagName,
+                  class: child.className,
+                  id: child.id,
+                  childCount: child.children.length,
+                  hasButtons: child.querySelectorAll('button').length > 0,
+                  allText: child.textContent?.substring(0, 100)
+                }))
+              })
+
+              focusManager.setupFocus(container)
+            } else {
+              console.error('[CheckedItem] Container not found!')
+            }
+          })
+        }
+
+        initFocusManager()
+      })
+
+      MainProcess.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
+        if (!focusManager) return
+
+        switch (e.type) {
+          case 'navigate-up':
+          case 'navigate-down':
+          case 'navigate-left':
+          case 'navigate-right':
+            focusManager.navigate(e.type.split('-')[1] as 'up' | 'down' | 'left' | 'right')
+            break
+          case 'activate':
+            focusManager.activateFocused()
+            break
+          case 'scroll-up':
+            focusManager.scrollTo('up')
+            break
+          case 'scroll-down':
+            focusManager.scrollTo('down')
+            break
+        }
+      })
+    }
 
     watch(() => props.item, (item, prevItem) => {
       const prevCurrency = (presets.value != null) ? itemFilters.value.trade.currency : undefined

@@ -216,15 +216,6 @@ export default defineComponent({
         console.log('[PriceCheckWindow] Gamepad navigation:', e.type)
 
         switch (e.type) {
-          case 'navigate-up':
-          case 'navigate-down':
-          case 'navigate-left':
-          case 'navigate-right':
-            focusManager?.navigate(e.type.split('-')[1] as 'up' | 'down' | 'left' | 'right')
-            break
-          case 'activate':
-            focusManager?.activateFocused()
-            break
           case 'cancel':
             closePriceCheck()
             break
@@ -233,15 +224,6 @@ export default defineComponent({
             break
           case 'tertiary':
             openLeagueSelection()
-            break
-          case 'scroll-up':
-            focusManager?.scrollTo('up')
-            break
-          case 'scroll-down':
-            focusManager?.scrollTo('down')
-            break
-          case 'prev-tab':
-          case 'next-tab':
             break
         }
       })
@@ -320,7 +302,7 @@ export default defineComponent({
           const windowEl = document.getElementById('price-window')
           if (windowEl) {
             priceWindowEl.value = windowEl
-            focusManager?.pushContext(windowEl)
+            focusManager.setupFocus(windowEl)
           }
         })
       }
@@ -328,7 +310,7 @@ export default defineComponent({
 
     onUnmounted(() => {
       if (focusManager) {
-        focusManager.popContext()
+        focusManager.resetContext()
       }
     })
 
