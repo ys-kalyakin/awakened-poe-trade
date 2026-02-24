@@ -1,61 +1,270 @@
-'use strict'
+"use strict";
 
-import { app } from 'electron'
-import { uIOhook } from 'uiohook-napi'
-import os from 'node:os'
-import { startServer, eventPipe, server } from './server'
-import { Logger } from './RemoteLogger'
-import { GameWindow } from './windowing/GameWindow'
-import { OverlayWindow } from './windowing/OverlayWindow'
-import { GameConfig } from './host-files/GameConfig'
-import { Shortcuts } from './shortcuts/Shortcuts'
-import { AppUpdater } from './AppUpdater'
-import { AppTray } from './AppTray'
-import { OverlayVisibility } from './windowing/OverlayVisibility'
-import { GameLogWatcher } from './host-files/GameLogWatcher'
-import { HttpProxy } from './proxy'
+import { app, screen } from "electron";
+import { uIOhook, UiohookKey as Key } from "uiohook-napi";
+import os from "node:os";
+import { startServer, eventPipe, server } from "./server";
+import { Logger } from "./RemoteLogger";
+import { GameWindow } from "./windowing/GameWindow";
+import { OverlayWindow } from "./windowing/OverlayWindow";
+import { GameConfig } from "./host-files/GameConfig";
+import { Shortcuts } from "./shortcuts/Shortcuts";
+import { AppUpdater } from "./AppUpdater";
+import { AppTray } from "./AppTray";
+import { OverlayVisibility } from "./windowing/OverlayVisibility";
+import { GameLogWatcher } from "./host-files/GameLogWatcher";
+import { HttpProxy } from "./proxy";
+import { HostClipboard } from "./shortcuts/HostClipboard";
+import { hotkeyToString, mergeTwoHotkeys } from "../../ipc/KeyToCode";
 
 if (!app.requestSingleInstanceLock()) {
-  app.exit()
+  app.exit();
 }
 
-if (process.platform !== 'darwin') {
-  app.disableHardwareAcceleration()
+if (process.platform !== "darwin") {
+  app.disableHardwareAcceleration();
 }
-app.enableSandbox()
+app.enableSandbox();
 
-let tray: AppTray
+let tray: AppTray;
 
-app.on('ready', async () => {
-  tray = new AppTray(eventPipe)
-  const logger = new Logger(eventPipe)
-  const gameLogWatcher = new GameLogWatcher(eventPipe, logger)
-  const gameConfig = new GameConfig(eventPipe, logger)
-  const poeWindow = new GameWindow()
-  const appUpdater = new AppUpdater(eventPipe)
-  const _httpProxy = new HttpProxy(server, logger)
+app.on("ready", async () => {
+  tray = new AppTray(eventPipe);
+  const logger = new Logger(eventPipe);
+  const gameLogWatcher = new GameLogWatcher(eventPipe, logger);
+  const gameConfig = new GameConfig(eventPipe, logger);
+  const poeWindow = new GameWindow();
+  const appUpdater = new AppUpdater(eventPipe);
+  const _httpProxy = new HttpProxy(server, logger);
+  const clipboard = new HostClipboard(logger);
 
   setTimeout(
     async () => {
-      const overlay = new OverlayWindow(eventPipe, logger, poeWindow)
-      new OverlayVisibility(eventPipe, overlay, gameConfig)
-      const shortcuts = await Shortcuts.create(logger, overlay, poeWindow, gameConfig, eventPipe)
-      eventPipe.onEventAnyClient('CLIENT->MAIN::update-host-config', (cfg) => {
-        overlay.updateOpts(cfg.overlayKey, cfg.windowTitle)
-        shortcuts.updateActions(cfg.shortcuts, cfg.stashScroll, cfg.logKeys, cfg.restoreClipboard, cfg.language)
-        gameLogWatcher.restart(cfg.clientLog ?? '')
-        gameConfig.readConfig(cfg.gameConfig ?? '')
-        appUpdater.checkAtStartup()
-        tray.overlayKey = cfg.overlayKey
-      })
-      uIOhook.start()
-      const port = await startServer(appUpdater, logger)
+      const overlay = new OverlayWindow(eventPipe, logger, poeWindow);
+      new OverlayVisibility(eventPipe, overlay, gameConfig);
+      const shortcuts = await Shortcuts.create(
+        logger,
+        overlay,
+        poeWindow,
+        gameConfig,
+        eventPipe,
+      );
+      eventPipe.onEventAnyClient("CLIENT->MAIN::update-host-config", (cfg) => {
+        overlay.updateOpts(cfg.overlayKey, cfg.windowTitle);
+        shortcuts.updateActions(
+          cfg.shortcuts,
+          cfg.stashScroll,
+          cfg.logKeys,
+          cfg.restoreClipboard,
+          cfg.language,
+        );
+        gameLogWatcher.restart(cfg.clientLog ?? "");
+        gameConfig.readConfig(cfg.gameConfig ?? "");
+        appUpdater.checkAtStartup();
+        tray.overlayKey = cfg.overlayKey;
+      });
+
+      // Function to copy item text using hotkeys
+      async function pressKeysToCopyItemText (): Promise<void> {
+        try {
+          const showModsKey = gameConfig.showModsKeyNullable || "Alt";
+
+          console.log('[Gamepad] ===== START COPYING ITEM =====')
+          console.log('[Gamepad] showModsKey:', showModsKey)
+          console.log('[Gamepad] Step 1: Pressing Ctrl')
+          uIOhook.keyToggle(Key.Ctrl, "down");
+          await new Promise(resolve => setTimeout(resolve, 50));
+
+          console.log('[Gamepad] Step 2: Pressing C (open mods menu)')
+          uIOhook.keyTap(Key.C);
+          await new Promise(resolve => setTimeout(resolve, 150));
+
+          console.log('[Gamepad] Step 3: Pressing showModsKey to copy item:', showModsKey)
+          uIOhook.keyToggle(Key[showModsKey as keyof typeof Key], "down");
+          await new Promise(resolve => setTimeout(resolve, 150));
+
+          console.log('[Gamepad] Step 4: Releasing showModsKey')
+          uIOhook.keyToggle(Key[showModsKey as keyof typeof Key], "up");
+          await new Promise(resolve => setTimeout(resolve, 50));
+
+          console.log('[Gamepad] Step 5: Releasing Ctrl')
+          uIOhook.keyToggle(Key.Ctrl, "up");
+
+          console.log('[Gamepad] ===== ITEM COPY KEYS PRESSED =====')
+        } catch (err) {
+          console.log('[Gamepad] Error in pressKeysToCopyItemText:', err);
+        }
+      }
+
+      // Handle gamepad actions from renderer
+      eventPipe.onEventAnyClient(
+        "RENDERER->MAIN::gamepad-action",
+        async (action) => {
+          console.log(`[Gamepad] Action received:`, JSON.stringify(action))
+
+          if (action.type === "toggle-overlay") {
+            console.log('[Gamepad] Toggling overlay')
+            overlay.toggleActiveState();
+          } else if (action.type === "copy-item") {
+            // Make sure overlay is active
+            if (!overlay.isInteractable) {
+              overlay.toggleActiveState();
+            }
+
+            // Copy item using hotkeys first
+            pressKeysToCopyItemText().then(() => {
+              console.log('[Gamepad] Item copied, waiting 200ms for clipboard')
+
+              // Wait for clipboard to be ready
+              setTimeout(() => {
+                // Read clipboard for gamepad copy-item action
+                clipboard
+                  .readItemText()
+                  .then((clipboardText) => {
+                    console.log('[Gamepad] Got clipboard text:', clipboardText.substring(0, 50))
+                    eventPipe.sendEventTo("last-active", {
+                      name: "MAIN->CLIENT::item-text",
+                      payload: {
+                        target: action.target || "item-check",
+                        clipboard: clipboardText,
+                        position: { x: 0, y: 0 },
+                        focusOverlay: true,
+                      },
+                    });
+                  })
+                  .catch(() => {
+                    // If clipboard read fails, send empty
+                    console.log('[Gamepad] Error reading clipboard, sending empty')
+                    eventPipe.sendEventTo("last-active", {
+                      name: "MAIN->CLIENT::item-text",
+                      payload: {
+                        target: action.target || "item-check",
+                        clipboard: "",
+                        position: { x: 0, y: 0 },
+                        focusOverlay: action.focusOverlay ?? false,
+                      },
+                    });
+                  });
+              }, 200)
+            }).catch((err) => {
+              console.log('[Gamepad] Error copying item:', err)
+            });
+          } else if (action.type === "price-check") {
+            console.log('[Gamepad] Price-check action triggered')
+
+            // Get cursor position BEFORE we start pressing keys
+            const cursorPosition = screen.getCursorScreenPoint()
+            console.log('[Gamepad] Cursor position BEFORE hotkeys:', cursorPosition)
+
+            // Make sure overlay is active
+            if (!overlay.isInteractable) {
+              console.log('[Gamepad] Overlay not interactive, activating')
+              overlay.toggleActiveState();
+            }
+
+            // Focus price-check widget
+            console.log('[Gamepad] Sending widget-action for price-check')
+            eventPipe.sendEventTo("broadcast", {
+              name: "MAIN->CLIENT::widget-action",
+              payload: { target: "price-check" },
+            });
+
+            // Wait for widget to open
+            setTimeout(() => {
+              console.log('[Gamepad] Waiting for item to be copied')
+
+              // Copy item using hotkeys
+              pressKeysToCopyItemText().then(() => {
+                console.log('[Gamepad] Item copied, waiting 2000ms for clipboard')
+
+                // Wait for clipboard to be ready
+                setTimeout(async () => {
+                  console.log('[Gamepad] Reading clipboard')
+
+                  // Use direct clipboard read instead of HostClipboard
+                  try {
+                    const { clipboard } = require('electron')
+                    const directText = clipboard.readText()
+                    console.log('[Gamepad] Direct clipboard read result:', directText.substring(0, 100))
+                    console.log('[Gamepad] Direct clipboard length:', directText.length)
+
+                    if (directText.length === 0) {
+                      console.log('[Gamepad] ERROR: Clipboard is empty!')
+                      console.log('[Gamepad] Sending empty item-text')
+                      eventPipe.sendEventTo("last-active", {
+                        name: "MAIN->CLIENT::item-text",
+                        payload: {
+                          target: "price-check",
+                          clipboard: "",
+                          position: cursorPosition,
+                          focusOverlay: true,
+                        },
+                      });
+                      return
+                    }
+
+                    // Verify it's an item
+                    if (!directText.startsWith('Item Class:')) {
+                      console.log('[Gamepad] ERROR: Clipboard doesn\'t contain an item!')
+                      console.log('[Gamepad] First 50 chars:', directText.substring(0, 50))
+                      eventPipe.sendEventTo("last-active", {
+                        name: "MAIN->CLIENT::item-text",
+                        payload: {
+                          target: "price-check",
+                          clipboard: directText,
+                          position: cursorPosition,
+                          focusOverlay: true,
+                        },
+                      });
+                      return
+                    }
+
+                    console.log('[Gamepad] Got clipboard text successfully!')
+                    console.log('[Gamepad] Sending item-text with cursor position:', cursorPosition)
+                    eventPipe.sendEventTo("last-active", {
+                      name: "MAIN->CLIENT::item-text",
+                      payload: {
+                        target: "price-check",
+                        clipboard: directText,
+                        position: cursorPosition,
+                        focusOverlay: true,
+                      },
+                    });
+                  } catch (e) {
+                    console.log('[Gamepad] Error reading clipboard directly:', e)
+                    console.log('[Gamepad] Sending empty item-text')
+                    eventPipe.sendEventTo("last-active", {
+                      name: "MAIN->CLIENT::item-text",
+                      payload: {
+                        target: "price-check",
+                        clipboard: "",
+                        position: cursorPosition,
+                        focusOverlay: true,
+                      },
+                    });
+                  }
+                }, 2000)
+              }).catch((err) => {
+                console.log('[Gamepad] Error copying item:', err)
+              })
+            }, 100)
+          } else if (action.type === "trigger-event") {
+            eventPipe.sendEventTo("broadcast", {
+              name: "MAIN->CLIENT::widget-action",
+              payload: { target: action.target || "" },
+            });
+          }
+        },
+      );
+
+      uIOhook.start();
+      const port = await startServer(appUpdater, logger);
       // TODO: move up (currently crashes)
-      logger.write(`info ${os.type()} ${os.release} / v${app.getVersion()}`)
-      overlay.loadAppPage(port)
-      tray.serverPort = port
+      logger.write(`info ${os.type()} ${os.release} / v${app.getVersion()}`);
+      overlay.loadAppPage(port);
+      tray.serverPort = port;
     },
     // fixes(linux): window is black instead of transparent
-    process.platform === 'linux' ? 1000 : 0
-  )
-})
+    process.platform === "linux" ? 1000 : 0,
+  );
+});

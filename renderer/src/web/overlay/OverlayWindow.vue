@@ -36,12 +36,13 @@ import { useI18n } from 'vue-i18n'
 import { Host } from '@/web/background/IPC'
 import { Widget, WidgetManager } from './interfaces'
 import { registry } from './widget-registry.js'
-import { AppConfig, saveConfig, pushHostConfig } from '@/web/Config'
+import { AppConfig, saveConfig, pushHostConfig, defaultConfig } from '@/web/Config'
 import LoadingAnimation from './LoadingAnimation.vue'
 // ---
 import { usePoeninja } from '@/web/background/Prices'
 import { useLeagues } from '@/web/background/Leagues'
 import { handleLine } from '@/web/client-log/client-log'
+import { GamepadManager } from '@/web/gamepad'
 
 type WMID = Widget['wmId']
 
@@ -50,8 +51,24 @@ export default defineComponent({
     LoadingAnimation
   },
   setup () {
+    console.log('[Overlay] Setup started')
+
     usePoeninja()
     useLeagues().load()
+
+    if (Host.isElectron) {
+      GamepadManager.getInstance()
+      console.log('[Overlay] Gamepad manager initialized')
+    }
+
+    console.log('[Overlay] AppConfig loaded:', {
+      widgets: AppConfig().widgets.map((w: any) => ({
+        type: w.wmType,
+        wmId: w.wmId,
+        wmWants: w.wmWants,
+        wmZorder: w.wmZorder
+      }))
+    })
 
     const active = shallowRef(!Host.isElectron)
     const gameFocused = shallowRef(false)
@@ -115,6 +132,122 @@ export default defineComponent({
     Host.onEvent('MAIN->CLIENT::game-log', (e) => {
       for (const line of e.lines) {
         handleLine(line)
+      }
+    })
+
+    Host.onEvent('MAIN->CLIENT::config-changed', (e: any) => {
+      console.log('[Overlay] Config changed, all widgets:', e.contents ? JSON.parse(e.contents).widgets.map((w: any) => ({
+        type: w.wmType,
+        wmId: w.wmId,
+        wmWants: w.wmWants
+      })) : [])
+    })
+
+    Host.onEvent('MAIN->CLIENT::widget-action', (e) => {
+      console.log('[Overlay] ====== WIDGET-ACTION EVENT START ======')
+      console.log('[Overlay] Event:', e)
+      console.log('[Overlay] Host.isElectron:', Host.isElectron)
+      console.log('[Overlay] e.target:', e.target)
+
+      if (e.target === 'price-check' && Host.isElectron) {
+        console.log('[Overlay] ✅ Price-check target detected, filtering widgets...')
+
+        const allWidgets = AppConfig().widgets
+        console.log('[Overlay] All widgets:', allWidgets.map((w: any) => ({
+          type: w.wmType,
+          wmId: w.wmId,
+          wmWants: w.wmWants,
+          wmZorder: w.wmZorder,
+          wmFlags: w.wmFlags
+        })))
+
+        const priceCheckWidgets = allWidgets.filter((w: any) => w.wmType === 'price-check')
+        console.log('[Overlay] Found', priceCheckWidgets.length, 'price-check widgets')
+
+        if (priceCheckWidgets.length === 0) {
+          console.log('[Overlay] ❌ Price-check widget NOT found in config!')
+          console.log('[Overlay] Available widget types:', allWidgets.map((w: any) => w.wmType))
+          return
+        }
+
+        for (const priceCheck of priceCheckWidgets) {
+          console.log('[Overlay] Processing price-check widget:')
+          console.log('[Overlay]   wmId:', priceCheck.wmId)
+          console.log('[Overlay]   wmType:', priceCheck.wmType)
+          console.log('[Overlay]   wmWants:', priceCheck.wmWants)
+          console.log('[Overlay]   wmZorder:', priceCheck.wmZorder)
+          console.log('[Overlay]   wmFlags:', priceCheck.wmFlags)
+
+          if (priceCheck.wmId === undefined || priceCheck.wmId === 0) {
+            console.log('[Overlay] ❌ Price-check widget has invalid wmId')
+            continue
+          }
+
+          if (priceCheck.wmWants === 'hide') {
+            console.log('[Overlay] ✅ Showing price-check widget', priceCheck.wmId)
+            show(priceCheck.wmId)
+          } else {
+            console.log('[Overlay] ⚠️  Price-check widget already shown, wmWants:', priceCheck.wmWants)
+          }
+        }
+      }
+      console.log('[Overlay] ====== WIDGET-ACTION EVENT END ======')
+    })
+
+    Host.onEvent('MAIN->CLIENT::config-changed', (e: any) => {
+      console.log('[Overlay] Config changed, all widgets:', e.contents ? JSON.parse(e.contents).widgets.map((w: any) => ({
+        type: w.wmType,
+        wmId: w.wmId,
+        wmWants: w.wmWants
+      })) : [])
+    })
+
+    Host.onEvent('MAIN->CLIENT::widget-action', (e) => {
+      console.log('[Overlay] Widget-action event:', e)
+      console.log('[Overlay] Host.isElectron:', Host.isElectron)
+      console.log('[Overlay] e.target:', e.target)
+
+      if (e.target === 'price-check' && Host.isElectron) {
+        console.log('[Overlay] Price-check target detected, filtering widgets...')
+
+        const allWidgets = AppConfig().widgets
+        console.log('[Overlay] All widgets:', allWidgets.map(w => ({
+          type: w.wmType,
+          wmId: w.wmId,
+          wmWants: w.wmWants,
+          wmZorder: w.wmZorder
+        })))
+
+        const priceCheckWidgets = allWidgets.filter(w => w.wmType === 'price-check')
+        console.log('[Overlay] Widget-action received for price-check, found', priceCheckWidgets.length, 'widgets')
+
+        if (priceCheckWidgets.length === 0) {
+          console.log('[Overlay] Price-check widget not found in config')
+          console.log('[Overlay] Default config widgets:', defaultConfig().widgets)
+          return
+        }
+
+        for (const priceCheck of priceCheckWidgets) {
+          console.log('[Overlay] Processing price-check widget:', {
+            wmId: priceCheck.wmId,
+            wmType: priceCheck.wmType,
+            wmWants: priceCheck.wmWants,
+            wmZorder: priceCheck.wmZorder,
+            wmFlags: priceCheck.wmFlags
+          })
+
+          if (priceCheck.wmId === undefined || priceCheck.wmId === 0) {
+            console.log('[Overlay] Price-check widget has invalid wmId, skipping')
+            continue
+          }
+
+          if (priceCheck.wmWants === 'hide') {
+            console.log('[Overlay] Showing price-check widget', priceCheck.wmId)
+            show(priceCheck.wmId)
+          } else {
+            console.log('[Overlay] Price-check widget already shown, wmWants:', priceCheck.wmWants)
+          }
+        }
       }
     })
 
