@@ -10,7 +10,7 @@ export interface GamepadActionConfig {
 }
 
 export interface GamepadAction {
-  type: 'toggle-overlay' | 'copy-item' | 'trigger-event' | 'paste-in-chat' | 'stash-search' | 'price-check'
+  type: 'toggle-overlay' | 'copy-item' | 'trigger-event' | 'paste-in-chat' | 'stash-search' | 'price-check' | 'close-price-check'
   target?: string
   focusOverlay?: boolean
   text?: string
@@ -68,6 +68,7 @@ const DEFAULT_CONFIG: GamepadConfig = {
   actions: [
     { button: 'LT+RT', action: { type: 'copy-item', focusOverlay: true, target: 'item-check' } },
     { button: 'L3+R3', action: { type: 'price-check', focusOverlay: true } },
+    { button: 'B', action: { type: 'close-price-check' } },
     { button: 'DOWN', action: { type: 'toggle-overlay' } }
   ]
 }

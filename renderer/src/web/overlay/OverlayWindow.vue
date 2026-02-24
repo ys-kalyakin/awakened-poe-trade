@@ -183,7 +183,13 @@ export default defineComponent({
             continue
           }
 
-          if (priceCheck.wmWants === 'hide') {
+          if (e.action === 'hide') {
+            console.log('[Overlay] ✅ Hiding price-check widget', priceCheck.wmId)
+            hide(priceCheck.wmId)
+            if (Host.isElectron) {
+              Host.sendEvent({ name: 'OVERLAY->MAIN::focus-game', payload: undefined })
+            }
+          } else if (priceCheck.wmWants === 'hide') {
             console.log('[Overlay] ✅ Showing price-check widget', priceCheck.wmId)
             show(priceCheck.wmId)
           } else {
@@ -200,55 +206,6 @@ export default defineComponent({
         wmId: w.wmId,
         wmWants: w.wmWants
       })) : [])
-    })
-
-    Host.onEvent('MAIN->CLIENT::widget-action', (e) => {
-      console.log('[Overlay] Widget-action event:', e)
-      console.log('[Overlay] Host.isElectron:', Host.isElectron)
-      console.log('[Overlay] e.target:', e.target)
-
-      if (e.target === 'price-check' && Host.isElectron) {
-        console.log('[Overlay] Price-check target detected, filtering widgets...')
-
-        const allWidgets = AppConfig().widgets
-        console.log('[Overlay] All widgets:', allWidgets.map(w => ({
-          type: w.wmType,
-          wmId: w.wmId,
-          wmWants: w.wmWants,
-          wmZorder: w.wmZorder
-        })))
-
-        const priceCheckWidgets = allWidgets.filter(w => w.wmType === 'price-check')
-        console.log('[Overlay] Widget-action received for price-check, found', priceCheckWidgets.length, 'widgets')
-
-        if (priceCheckWidgets.length === 0) {
-          console.log('[Overlay] Price-check widget not found in config')
-          console.log('[Overlay] Default config widgets:', defaultConfig().widgets)
-          return
-        }
-
-        for (const priceCheck of priceCheckWidgets) {
-          console.log('[Overlay] Processing price-check widget:', {
-            wmId: priceCheck.wmId,
-            wmType: priceCheck.wmType,
-            wmWants: priceCheck.wmWants,
-            wmZorder: priceCheck.wmZorder,
-            wmFlags: priceCheck.wmFlags
-          })
-
-          if (priceCheck.wmId === undefined || priceCheck.wmId === 0) {
-            console.log('[Overlay] Price-check widget has invalid wmId, skipping')
-            continue
-          }
-
-          if (priceCheck.wmWants === 'hide') {
-            console.log('[Overlay] Showing price-check widget', priceCheck.wmId)
-            show(priceCheck.wmId)
-          } else {
-            console.log('[Overlay] Price-check widget already shown, wmWants:', priceCheck.wmWants)
-          }
-        }
-      }
     })
 
     onMounted(() => {

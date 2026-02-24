@@ -27,6 +27,8 @@ if (process.platform !== "darwin") {
 app.enableSandbox();
 
 let tray: AppTray;
+let isProcessingPriceCheck = false;
+let priceCheckProcessingTimer: NodeJS.Timeout | null = null;
 
 app.on("ready", async () => {
   tray = new AppTray(eventPipe);
@@ -105,7 +107,11 @@ app.on("ready", async () => {
           if (action.type === "toggle-overlay") {
             console.log('[Gamepad] Toggling overlay')
             overlay.toggleActiveState();
-          } else if (action.type === "copy-item") {
+           } else if (action.type === "copy-item") {
+            // Mark price-check as not processing when copy-item is triggered
+            isProcessingPriceCheck = false
+            console.log('[Gamepad] Cleanup: copy-item triggered, price-check processing cancelled')
+
             // Make sure overlay is active
             if (!overlay.isInteractable) {
               overlay.toggleActiveState();
@@ -150,17 +156,21 @@ app.on("ready", async () => {
               console.log('[Gamepad] Error copying item:', err)
             });
           } else if (action.type === "price-check") {
+            // Prevent multiple price-check actions
+            if (isProcessingPriceCheck) {
+              console.log('[Gamepad] Price-check already processing, ignoring duplicate')
+              return
+            }
+
             console.log('[Gamepad] Price-check action triggered')
 
             // Get cursor position BEFORE we start pressing keys
             const cursorPosition = screen.getCursorScreenPoint()
             console.log('[Gamepad] Cursor position BEFORE hotkeys:', cursorPosition)
 
-            // Make sure overlay is active
-            if (!overlay.isInteractable) {
-              console.log('[Gamepad] Overlay not interactive, activating')
-              overlay.toggleActiveState();
-            }
+            // Mark as processing
+            isProcessingPriceCheck = true
+            console.log('[Gamepad] Marked as processing price-check')
 
             // Focus price-check widget
             console.log('[Gamepad] Sending widget-action for price-check')
@@ -243,18 +253,37 @@ app.on("ready", async () => {
                       },
                     });
                   }
+
+                  // Cleanup: mark price-check as not processing
+                  isProcessingPriceCheck = false
+                  console.log('[Gamepad] Cleanup: price-check processing finished')
                 }, 2000)
-              }).catch((err) => {
-                console.log('[Gamepad] Error copying item:', err)
-              })
-            }, 100)
-          } else if (action.type === "trigger-event") {
+               }).catch((err) => {
+                 console.log('[Gamepad] Error copying item:', err)
+
+                 // Cleanup on error
+                 isProcessingPriceCheck = false
+                 console.log('[Gamepad] Cleanup: price-check processing failed')
+               })
+             }, 100)
+           } else if (action.type === "trigger-event") {
+             // Mark price-check as not processing when trigger-event is triggered
+             isProcessingPriceCheck = false
+             console.log('[Gamepad] Cleanup: trigger-event triggered, price-check processing cancelled')
+             eventPipe.sendEventTo("broadcast", {
+               name: "MAIN->CLIENT::widget-action",
+               payload: { target: action.target || "" },
+             });
+          } else if (action.type === "close-price-check") {
+            console.log('[Gamepad] Closing price-check widget')
+            isProcessingPriceCheck = false
+            console.log('[Gamepad] Cleanup: close-price-check triggered, price-check processing cancelled')
             eventPipe.sendEventTo("broadcast", {
               name: "MAIN->CLIENT::widget-action",
-              payload: { target: action.target || "" },
+              payload: { target: "price-check", action: "hide" },
             });
           }
-        },
+        }
       );
 
       uIOhook.start();

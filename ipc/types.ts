@@ -163,6 +163,7 @@ type IpcWidgetAction = Event<
   "MAIN->CLIENT::widget-action",
   {
     target: string;
+    action?: "show" | "hide";
   }
 >;
 
@@ -222,6 +223,9 @@ type IpcGamepadAction = Event<
   | {
       type: "price-check";
       focusOverlay?: boolean;
+    }
+  | {
+      type: "close-price-check";
     }
   | {
       type: "trigger-event";
