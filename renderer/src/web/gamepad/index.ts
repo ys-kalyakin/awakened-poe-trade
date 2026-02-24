@@ -74,7 +74,6 @@ const DEFAULT_CONFIG: GamepadConfig = {
     { button: 'LT+RT', action: { type: 'copy-item', focusOverlay: true, target: 'item-check' } },
     { button: 'L3+R3', action: { type: 'price-check', focusOverlay: true } },
     { button: 'B', action: { type: 'close-price-check' } },
-    { button: 'DOWN', action: { type: 'toggle-overlay' } },
     // D-Pad Navigation
     { button: 'UP', action: { type: 'navigate-up' } },
     { button: 'DOWN', action: { type: 'navigate-down' } },
