@@ -142,4 +142,20 @@ input[type=number]::-webkit-outer-spin-button {
   transform-origin-y: 0px;
   transform-origin-z: initial;
 }
+
+/* Gamepad Navigation Styles */
+.gamepad-focused {
+  outline: 3px solid #fbbf24;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.4);
+  z-index: 10;
+}
+
+.gamepad-focused button {
+  background: rgba(251, 191, 36, 0.2);
+}
+
+.gamepad-focused tr {
+  background: rgba(251, 191, 36, 0.15);
+}
 </style>

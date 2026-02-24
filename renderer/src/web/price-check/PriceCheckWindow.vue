@@ -8,7 +8,7 @@
     <div v-if="!isBrowserShown" class="layout-column shrink-0"
       style="width: var(--game-panel);">
     </div>
-    <div id="price-window" class="layout-column shrink-0 text-gray-200 pointer-events-auto" style="width: 28.75rem;">
+    <div ref="priceWindowEl" id="price-window" class="layout-column shrink-0 text-gray-200 pointer-events-auto" style="width: 28.75rem;">
       <AppTitleBar @close="closePriceCheck" @click="openLeagueSelection" :title="title">
         <ui-popover v-if="stableOrbCost" trigger="click" boundary="#price-window">
           <template #target>
@@ -67,7 +67,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, inject, PropType, shallowRef, watch, computed, nextTick, provide } from 'vue'
+import { defineComponent, inject, PropType, shallowRef, watch, computed, nextTick, provide, onMounted, onUnmounted } from 'vue'
 import { Result, ok, err } from 'neverthrow'
 import { useI18n } from 'vue-i18n'
 import UiErrorBox from '@/web/ui/UiErrorBox.vue'
@@ -86,6 +86,7 @@ import CheckPositionCircle from './CheckPositionCircle.vue'
 import AppTitleBar from '@/web/ui/AppTitlebar.vue'
 import ItemQuickPrice from '@/web/ui/ItemQuickPrice.vue'
 import { PriceCheckWidget, WidgetManager, WidgetSpec } from '../overlay/interfaces'
+import type { FocusManager } from '../overlay/FocusManager'
 
 type ParseError = { name: string; message: string; rawText: ParsedItem['rawText'] }
 
@@ -139,6 +140,11 @@ export default defineComponent({
   },
   setup (props) {
     const wm = inject<WidgetManager>('wm')!
+    const focusManager = inject<FocusManager>('focusManager')
+
+    if (!focusManager) {
+      console.warn('[PriceCheckWindow] FocusManager not available')
+    }
     const { xchgRate, initialLoading: xchgRateLoading, queuePricesFetch } = usePoeninja()
 
     nextTick(() => {
@@ -205,6 +211,42 @@ export default defineComponent({
       wm.hide(props.config.wmId)
     })
 
+    if (focusManager) {
+      MainProcess.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
+        console.log('[PriceCheckWindow] Gamepad navigation:', e.type)
+
+        switch (e.type) {
+          case 'navigate-up':
+          case 'navigate-down':
+          case 'navigate-left':
+          case 'navigate-right':
+            focusManager?.navigate(e.type.split('-')[1] as 'up' | 'down' | 'left' | 'right')
+            break
+          case 'activate':
+            focusManager?.activateFocused()
+            break
+          case 'cancel':
+            closePriceCheck()
+            break
+          case 'secondary':
+            advancedCheck.value = !advancedCheck.value
+            break
+          case 'tertiary':
+            openLeagueSelection()
+            break
+          case 'scroll-up':
+            focusManager?.scrollTo('up')
+            break
+          case 'scroll-down':
+            focusManager?.scrollTo('down')
+            break
+          case 'prev-tab':
+          case 'next-tab':
+            break
+        }
+      })
+    }
+
     watch(() => props.config.wmWants, (state) => {
       if (state === 'hide') {
         closeBrowser()
@@ -270,6 +312,26 @@ export default defineComponent({
 
     const { t } = useI18n()
 
+    const priceWindowEl = shallowRef<HTMLElement | null>(null)
+
+    onMounted(() => {
+      if (focusManager) {
+        nextTick(() => {
+          const windowEl = document.getElementById('price-window')
+          if (windowEl) {
+            priceWindowEl.value = windowEl
+            focusManager?.pushContext(windowEl)
+          }
+        })
+      }
+    })
+
+    onUnmounted(() => {
+      if (focusManager) {
+        focusManager.popContext()
+      }
+    })
+
     return {
       t,
       clickPosition,
@@ -286,7 +348,8 @@ export default defineComponent({
       handleIdentification,
       overlayKey,
       isLeagueSelected,
-      openLeagueSelection
+      openLeagueSelection,
+      priceWindowEl
     }
   }
 })

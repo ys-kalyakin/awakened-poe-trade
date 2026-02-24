@@ -87,6 +87,7 @@ export type IpcEvent =
   | IpcItemText
   | IpcOcrText
   | IpcConfigChanged
+  | IpcGamepadNavigation
   | IpcUserAction
   | IpcGamepadAction;
 
@@ -163,7 +164,7 @@ type IpcWidgetAction = Event<
   "MAIN->CLIENT::widget-action",
   {
     target: string;
-    action?: "show" | "hide";
+    action?: "show" | "hide" | "prev-widget" | "next-widget";
   }
 >;
 
@@ -231,6 +232,57 @@ type IpcGamepadAction = Event<
       type: "trigger-event";
       target?: string;
     }
+  | {
+      type: "navigate-up";
+    }
+  | {
+      type: "navigate-down";
+    }
+  | {
+      type: "navigate-left";
+    }
+  | {
+      type: "navigate-right";
+    }
+  | {
+      type: "activate";
+    }
+  | {
+      type: "cancel";
+    }
+  | {
+      type: "secondary";
+    }
+  | {
+      type: "tertiary";
+    }
+  | {
+      type: "scroll-up";
+    }
+  | {
+      type: "scroll-down";
+    }
+  | {
+      type: "prev-tab";
+    }
+  | {
+      type: "next-tab";
+    }
+  | {
+      type: "prev-widget";
+    }
+  | {
+      type: "next-widget";
+    }
+>;
+
+type IpcGamepadNavigation = Event<
+  "MAIN->CLIENT::gamepad-navigation",
+  {
+    type: "navigate-up" | "navigate-down" | "navigate-left" | "navigate-right" |
+          "activate" | "cancel" | "secondary" | "tertiary" |
+          "scroll-up" | "scroll-down" | "prev-tab" | "next-tab";
+  }
 >;
 
 interface Event<TName extends string, TPayload = undefined> {

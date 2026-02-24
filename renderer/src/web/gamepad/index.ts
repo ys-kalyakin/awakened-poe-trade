@@ -10,7 +10,12 @@ export interface GamepadActionConfig {
 }
 
 export interface GamepadAction {
-  type: 'toggle-overlay' | 'copy-item' | 'trigger-event' | 'paste-in-chat' | 'stash-search' | 'price-check' | 'close-price-check'
+  type: 'toggle-overlay' | 'copy-item' | 'trigger-event' | 'paste-in-chat' | 'stash-search' |
+        'price-check' | 'close-price-check' |
+        'navigate-up' | 'navigate-down' | 'navigate-left' | 'navigate-right' |
+        'activate' | 'cancel' | 'secondary' | 'tertiary' |
+        'scroll-up' | 'scroll-down' | 'prev-tab' | 'next-tab' |
+        'prev-widget' | 'next-widget'
   target?: string
   focusOverlay?: boolean
   text?: string
@@ -69,7 +74,23 @@ const DEFAULT_CONFIG: GamepadConfig = {
     { button: 'LT+RT', action: { type: 'copy-item', focusOverlay: true, target: 'item-check' } },
     { button: 'L3+R3', action: { type: 'price-check', focusOverlay: true } },
     { button: 'B', action: { type: 'close-price-check' } },
-    { button: 'DOWN', action: { type: 'toggle-overlay' } }
+    { button: 'DOWN', action: { type: 'toggle-overlay' } },
+    // D-Pad Navigation
+    { button: 'UP', action: { type: 'navigate-up' } },
+    { button: 'DOWN', action: { type: 'navigate-down' } },
+    { button: 'LEFT', action: { type: 'navigate-left' } },
+    { button: 'RIGHT', action: { type: 'navigate-right' } },
+    // Action Buttons
+    { button: 'A', action: { type: 'activate' } },
+    { button: 'B', action: { type: 'cancel' } },
+    { button: 'X', action: { type: 'secondary' } },
+    { button: 'Y', action: { type: 'tertiary' } },
+    // Shoulder Buttons - Scroll
+    { button: 'LT', action: { type: 'scroll-up' } },
+    { button: 'RT', action: { type: 'scroll-down' } },
+    // Shoulder Buttons - Tabs
+    { button: 'LB', action: { type: 'prev-tab' } },
+    { button: 'RB', action: { type: 'next-tab' } }
   ]
 }
 

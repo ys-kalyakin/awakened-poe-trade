@@ -282,6 +282,29 @@ app.on("ready", async () => {
               name: "MAIN->CLIENT::widget-action",
               payload: { target: "price-check", action: "hide" },
             });
+          } else if (action.type === "navigate-up" || action.type === "navigate-down" ||
+                     action.type === "navigate-left" || action.type === "navigate-right" ||
+                     action.type === "activate" || action.type === "cancel" ||
+                     action.type === "secondary" || action.type === "tertiary" ||
+                     action.type === "scroll-up" || action.type === "scroll-down" ||
+                     action.type === "prev-tab" || action.type === "next-tab") {
+            console.log(`[Gamepad] Navigation action: ${action.type}`)
+            eventPipe.sendEventTo("broadcast", {
+              name: "MAIN->CLIENT::gamepad-navigation",
+              payload: { type: action.type },
+            });
+          } else if (action.type === "prev-widget") {
+            console.log('[Gamepad] Previous widget')
+            eventPipe.sendEventTo("broadcast", {
+              name: "MAIN->CLIENT::widget-action",
+              payload: { target: "", action: "prev-widget" },
+            });
+          } else if (action.type === "next-widget") {
+            console.log('[Gamepad] Next widget')
+            eventPipe.sendEventTo("broadcast", {
+              name: "MAIN->CLIENT::widget-action",
+              payload: { target: "", action: "next-widget" },
+            });
           }
         }
       );

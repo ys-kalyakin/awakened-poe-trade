@@ -43,6 +43,7 @@ import { usePoeninja } from '@/web/background/Prices'
 import { useLeagues } from '@/web/background/Leagues'
 import { handleLine } from '@/web/client-log/client-log'
 import { GamepadManager } from '@/web/gamepad'
+import { useFocusManager } from './FocusManager'
 
 type WMID = Widget['wmId']
 
@@ -60,6 +61,18 @@ export default defineComponent({
       GamepadManager.getInstance()
       console.log('[Overlay] Gamepad manager initialized')
     }
+
+    const focusManager = useFocusManager()
+    console.log('[Overlay] Focus manager initialized')
+
+    onMounted(() => {
+      nextTick(() => {
+        const appElement = document.getElementById('app')
+        if (appElement) {
+          focusManager.setupFocus(appElement)
+        }
+      })
+    })
 
     console.log('[Overlay] AppConfig loaded:', {
       widgets: AppConfig().widgets.map((w: any) => ({
@@ -341,6 +354,8 @@ export default defineComponent({
       create,
       setFlag
     })
+
+    provide('focusManager', focusManager)
 
     function handleBackgroundClick () {
       if (!Host.isElectron) {
