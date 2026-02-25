@@ -4,9 +4,7 @@
 
 ### Current Issues
 
-**Current Issues**
-
-- ⚠️ Testing with debounce - Added toggle debounce to prevent double clicks
+- ⚠️ Testing needed - After filter toggle, focus should go to Search button (added auto-focus in handleFilterToggledEvent)
 
 ### Checkbox Fix - Force Component Re-creation + Toggle Debounce (2026-02-25)
 
@@ -84,9 +82,32 @@ All FilterModifier components are now standalone without form context, eliminati
 4. Check console for "Ignoring toggle - too soon after last toggle" (if double-click happens)
 5. Verify checkboxes toggle correctly without flipping back
 
+### Search Button Focus After Filter Toggle (2026-02-25)
+
+Added auto-focus on Search button after filter changes to fix navigation issue.
+
+**Problem:**
+After performing a search and then changing filters, the Search button would reappear but navigation focus was not set on it, making it impossible to reach the button with gamepad arrows.
+
+**Changes:**
+
+**CheckedItem.vue:**
+- Modified `handleFilterToggledEvent()`:
+  - Reduced timeout from 200ms to 50ms (faster response)
+  - Added `nextTick` after `refreshContext()`
+  - Calls `focusElementBySelector('#price-check-search-btn')` to set focus on Search button
+
+**Flow:**
+1. User toggles a filter checkbox
+2. `doSearch` becomes `false` (Search button reappears)
+3. After 50ms, navigation context is refreshed
+4. In nextTick, focus is set to Search button
+5. User can now navigate from Search button using arrows
+
 ### Navigation Issues - Resolved
 
 - ✅ Fixed: Focus sometimes jumping to incorrect elements
+- ✅ Fixed: Unable to reach Search button after filter toggle - now auto-focuses on Search button when filters change (2026-02-25)
 - ✅ Fixed: Difficult to land on target elements
 - ✅ Added: Auto-focus on Search button when price-check opens
 - ✅ Added: Checkbox navigation support
@@ -228,6 +249,7 @@ Gamepad Input → GamepadManager → OverlayWindow → PriceCheckWindow → Chec
 - Input fields (min/max values) excluded from navigation - focus goes to checkbox button
 - Search button remains visible after filter toggle, allowing navigation to it
 - Simplified filter toggle logic for better compatibility with Vue 3 reactivity
+- Search button automatically receives focus after filter changes (fast response - 50ms timeout)
 
 ## Items Documentation
 

@@ -326,7 +326,10 @@ export default defineComponent({
       if (focusManager) {
         setTimeout(() => {
           focusManager.refreshContext()
-        }, 200)
+          nextTick(() => {
+            focusManager.focusElementBySelector('#price-check-search-btn')
+          })
+        }, 50)
       }
     }
 
