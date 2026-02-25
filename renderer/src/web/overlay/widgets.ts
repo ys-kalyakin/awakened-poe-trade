@@ -1,3 +1,5 @@
+import type { MapCheckConfig } from '@/web/map-check/common'
+
 export interface Widget {
   wmId: number
   wmType: string
@@ -51,6 +53,11 @@ export interface PriceCheckWidget extends Widget {
   requestPricePrediction: boolean
   builtinBrowser: boolean
   rememberCurrency: boolean
+}
+
+export interface MapCheckWidget extends Widget {
+  hotkey: string | null
+  maps: MapCheckConfig
 }
 
 export interface StopwatchWidget extends Widget {

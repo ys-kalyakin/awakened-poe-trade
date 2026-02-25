@@ -155,14 +155,60 @@ app.on("ready", async () => {
             }).catch((err) => {
               console.log('[Gamepad] Error copying item:', err)
             });
-          } else if (action.type === "price-check") {
-            // Prevent multiple price-check actions
-            if (isProcessingPriceCheck) {
-              console.log('[Gamepad] Price-check already processing, ignoring duplicate')
-              return
-            }
+          } else if (action.type === "check-item") {
+            console.log('[Gamepad] Check-item action triggered')
 
-            console.log('[Gamepad] Price-check action triggered')
+            // Get cursor position BEFORE we start pressing keys
+            const cursorPosition = screen.getCursorScreenPoint()
+            console.log('[Gamepad] Check-item cursor position:', cursorPosition)
+
+            // Copy item first to determine type
+            pressKeysToCopyItemText().then(() => {
+              console.log('[Gamepad] Item copied for check-item, waiting 200ms')
+
+              setTimeout(async () => {
+                try {
+                  const { clipboard } = require('electron')
+                  const directText = clipboard.readText()
+                  console.log('[Gamepad] Check-item clipboard length:', directText.length)
+
+                  // Determine if this is a map-like item
+                  const isMapLike = directText.includes('Item Class: Map') ||
+                    directText.includes('Item Class: Heist Contract') ||
+                    directText.includes('Item Class: Heist Blueprint') ||
+                    directText.includes('Item Class: Invitation') ||
+                    directText.includes('Expedition Logbook')
+
+                  const targetType = isMapLike ? 'map-check' : 'price-check'
+                  console.log('[Gamepad] Opening', targetType, 'for item')
+
+                  // Focus appropriate widget
+                  eventPipe.sendEventTo("broadcast", {
+                    name: "MAIN->CLIENT::widget-action",
+                    payload: { target: targetType },
+                  });
+
+                  // Wait for widget to open
+                  setTimeout(() => {
+                    console.log('[Gamepad] Sending item-text to', targetType)
+                    eventPipe.sendEventTo("last-active", {
+                      name: "MAIN->CLIENT::item-text",
+                      payload: {
+                        target: targetType,
+                        clipboard: directText,
+                        position: cursorPosition,
+                        focusOverlay: true,
+                      },
+                    });
+                  }, 100)
+                } catch (e) {
+                  console.log('[Gamepad] Error in check-item:', e)
+                }
+              }, 200)
+            }).catch((err) => {
+              console.log('[Gamepad] Error copying item for check-item:', err)
+            })
+          } else if (action.type === "price-check") {
 
             // Get cursor position BEFORE we start pressing keys
             const cursorPosition = screen.getCursorScreenPoint()
@@ -266,6 +312,80 @@ app.on("ready", async () => {
                  console.log('[Gamepad] Cleanup: price-check processing failed')
                })
              }, 100)
+          } else if (action.type === "map-check") {
+            console.log('[Gamepad] Map-check action triggered')
+
+            // Get cursor position BEFORE we start pressing keys
+            const cursorPosition = screen.getCursorScreenPoint()
+            console.log('[Gamepad] Map-check cursor position:', cursorPosition)
+
+            // Focus map-check widget
+            console.log('[Gamepad] Sending widget-action for map-check')
+            eventPipe.sendEventTo("broadcast", {
+              name: "MAIN->CLIENT::widget-action",
+              payload: { target: "map-check" },
+            });
+
+            // Wait for widget to open
+            setTimeout(() => {
+              console.log('[Gamepad] Waiting for item to be copied')
+
+              // Copy item using hotkeys
+              pressKeysToCopyItemText().then(() => {
+                console.log('[Gamepad] Map-check item copied, waiting 200ms for clipboard')
+
+                // Wait for clipboard to be ready
+                setTimeout(async () => {
+                  console.log('[Gamepad] Reading clipboard for map-check')
+
+                  // Use direct clipboard read
+                  try {
+                    const { clipboard } = require('electron')
+                    const directText = clipboard.readText()
+                    console.log('[Gamepad] Map-check clipboard result:', directText.substring(0, 100))
+                    console.log('[Gamepad] Map-check clipboard length:', directText.length)
+
+                    if (directText.length === 0) {
+                      console.log('[Gamepad] Map-check ERROR: Clipboard is empty!')
+                      eventPipe.sendEventTo("last-active", {
+                        name: "MAIN->CLIENT::item-text",
+                        payload: {
+                          target: "map-check",
+                          clipboard: "",
+                          position: cursorPosition,
+                          focusOverlay: true,
+                        },
+                      });
+                      return
+                    }
+
+                    console.log('[Gamepad] Map-check sending item-text with cursor position:', cursorPosition)
+                    eventPipe.sendEventTo("last-active", {
+                      name: "MAIN->CLIENT::item-text",
+                      payload: {
+                        target: "map-check",
+                        clipboard: directText,
+                        position: cursorPosition,
+                        focusOverlay: true,
+                      },
+                    });
+                  } catch (e) {
+                    console.log('[Gamepad] Map-check error reading clipboard:', e)
+                    eventPipe.sendEventTo("last-active", {
+                      name: "MAIN->CLIENT::item-text",
+                      payload: {
+                        target: "map-check",
+                        clipboard: "",
+                        position: cursorPosition,
+                        focusOverlay: true,
+                      },
+                    });
+                  }
+                }, 150)
+               }).catch((err) => {
+                 console.log('[Gamepad] Map-check error copying item:', err)
+               })
+             }, 100)
            } else if (action.type === "trigger-event") {
              // Mark price-check as not processing when trigger-event is triggered
              isProcessingPriceCheck = false
@@ -281,6 +401,12 @@ app.on("ready", async () => {
             eventPipe.sendEventTo("broadcast", {
               name: "MAIN->CLIENT::widget-action",
               payload: { target: "price-check", action: "hide" },
+            });
+          } else if (action.type === "close-map-check") {
+            console.log('[Gamepad] Closing map-check widget')
+            eventPipe.sendEventTo("broadcast", {
+              name: "MAIN->CLIENT::widget-action",
+              payload: { target: "map-check", action: "hide" },
             });
           } else if (action.type === "navigate-up" || action.type === "navigate-down" ||
                      action.type === "navigate-left" || action.type === "navigate-right" ||

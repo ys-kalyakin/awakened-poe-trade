@@ -1,331 +1,485 @@
 // Gamepad support for Awakened PoE Trade
 // This module provides gamepad input handling in the renderer process
 
-import { Host } from '@/web/background/IPC'
+import { Host } from "@/web/background/IPC";
 
 export interface GamepadActionConfig {
-  button: string
-  action: GamepadAction
-  target?: string
+  button: string;
+  action: GamepadAction;
+  target?: string;
 }
 
 export interface GamepadAction {
-  type: 'toggle-overlay' | 'copy-item' | 'trigger-event' | 'paste-in-chat' | 'stash-search' |
-        'price-check' | 'close-price-check' |
-        'navigate-up' | 'navigate-down' | 'navigate-left' | 'navigate-right' |
-        'activate' | 'cancel' | 'secondary' | 'tertiary' |
-        'scroll-up' | 'scroll-down' | 'prev-tab' | 'next-tab' |
-        'prev-widget' | 'next-widget'
-  target?: string
-  focusOverlay?: boolean
-  text?: string
-  send?: boolean
+  type:
+    | "toggle-overlay"
+    | "copy-item"
+    | "trigger-event"
+    | "paste-in-chat"
+    | "stash-search"
+    | "check-item"
+    | "price-check"
+    | "map-check"
+    | "close-price-check"
+    | "close-map-check"
+    | "navigate-up"
+    | "navigate-down"
+    | "navigate-left"
+    | "navigate-right"
+    | "activate"
+    | "cancel"
+    | "secondary"
+    | "tertiary"
+    | "scroll-up"
+    | "scroll-down"
+    | "prev-tab"
+    | "next-tab"
+    | "prev-widget"
+    | "next-widget";
+  target?: string;
+  focusOverlay?: boolean;
+  text?: string;
+  send?: boolean;
 }
 
 export interface GamepadConfig {
-  enabled: boolean
-  actions: GamepadActionConfig[]
+  enabled: boolean;
+  actions: GamepadActionConfig[];
 }
 
 export const GamepadButtonNames: Record<string, string> = {
-  A: 'A (Cross)',
-  B: 'B (Circle)',
-  X: 'X (Square)',
-  Y: 'Y (Triangle)',
-  LB: 'LB (L1)',
-  RB: 'RB (R1)',
-  LT: 'LT (L2)',
-  RT: 'RT (R2)',
-  BACK: 'Back',
-  START: 'Start',
-  LS: 'LS (Left Stick)',
-  RS: 'RS (Right Stick)',
-  L3: 'L3 (Left Stick)',
-  R3: 'R3 (Right Stick)',
-  DPAD_DOWN: 'D-Pad Down',
-  DPAD_UP: 'D-Pad Up',
-  DPAD_LEFT: 'D-Pad Left',
-  DPAD_RIGHT: 'D-Pad Right',
-  DOWN: 'D-Pad Down',
-  UP: 'D-Pad Up',
-  LEFT: 'D-Pad Left',
-  RIGHT: 'D-Pad Right'
-}
+  A: "A (Cross)",
+  B: "B (Circle)",
+  X: "X (Square)",
+  Y: "Y (Triangle)",
+  LB: "LB (L1)",
+  RB: "RB (R1)",
+  LT: "LT (L2)",
+  RT: "RT (R2)",
+  BACK: "Back",
+  START: "Start",
+  LS: "LS (Left Stick)",
+  RS: "RS (Right Stick)",
+  L3: "L3 (Left Stick)",
+  R3: "R3 (Right Stick)",
+  DPAD_DOWN: "D-Pad Down",
+  DPAD_UP: "D-Pad Up",
+  DPAD_LEFT: "D-Pad Left",
+  DPAD_RIGHT: "D-Pad Right",
+  DOWN: "D-Pad Down",
+  UP: "D-Pad Up",
+  LEFT: "D-Pad Left",
+  RIGHT: "D-Pad Right",
+};
 
 export const GamepadButtons = [
-  { id: 'A', name: 'A (Cross)' },
-  { id: 'B', name: 'B (Circle)' },
-  { id: 'X', name: 'X (Square)' },
-  { id: 'Y', name: 'Y (Triangle)' },
-  { id: 'LB', name: 'LB (L1)' },
-  { id: 'RB', name: 'RB (R1)' },
-  { id: 'LT', name: 'LT (L2)' },
-  { id: 'RT', name: 'RT (R2)' },
-  { id: 'START', name: 'Start' },
-  { id: 'BACK', name: 'Back' },
-  { id: 'L3', name: 'L3 (Left Stick)' },
-  { id: 'R3', name: 'R3 (Right Stick)' },
-  { id: 'DPAD_DOWN', name: 'D-Pad Down' },
-  { id: 'DPAD_UP', name: 'D-Pad Up' },
-  { id: 'DPAD_LEFT', name: 'D-Pad Left' },
-  { id: 'DPAD_RIGHT', name: 'D-Pad Right' },
-  { id: 'DOWN', name: 'D-Pad Down' },
-  { id: 'UP', name: 'D-Pad Up' },
-  { id: 'LEFT', name: 'D-Pad Left' },
-  { id: 'RIGHT', name: 'D-Pad Right' }
-]
+  { id: "A", name: "A (Cross)" },
+  { id: "B", name: "B (Circle)" },
+  { id: "X", name: "X (Square)" },
+  { id: "Y", name: "Y (Triangle)" },
+  { id: "LB", name: "LB (L1)" },
+  { id: "RB", name: "RB (R1)" },
+  { id: "LT", name: "LT (L2)" },
+  { id: "RT", name: "RT (R2)" },
+  { id: "START", name: "Start" },
+  { id: "BACK", name: "Back" },
+  { id: "L3", name: "L3 (Left Stick)" },
+  { id: "R3", name: "R3 (Right Stick)" },
+  { id: "DPAD_DOWN", name: "D-Pad Down" },
+  { id: "DPAD_UP", name: "D-Pad Up" },
+  { id: "DPAD_LEFT", name: "D-Pad Left" },
+  { id: "DPAD_RIGHT", name: "D-Pad Right" },
+  { id: "DOWN", name: "D-Pad Down" },
+  { id: "UP", name: "D-Pad Up" },
+  { id: "LEFT", name: "D-Pad Left" },
+  { id: "RIGHT", name: "D-Pad Right" },
+];
 
 const DEFAULT_CONFIG: GamepadConfig = {
   enabled: true,
   actions: [
-    { button: 'LT+RT', action: { type: 'copy-item', focusOverlay: true, target: 'item-check' } },
-    { button: 'L3+R3', action: { type: 'price-check', focusOverlay: true } },
-    { button: 'B', action: { type: 'close-price-check' } },
+    {
+      button: "LT+RT",
+      action: { type: "copy-item", focusOverlay: true, target: "item-check" },
+    },
+    { button: "L3+R3", action: { type: "check-item", focusOverlay: true } },
+    { button: "B", action: { type: "close-price-check" } },
+    { button: "B", action: { type: "close-map-check" } },
     // D-Pad Navigation
-    { button: 'DPAD_UP', action: { type: 'navigate-up' } },
-    { button: 'DPAD_DOWN', action: { type: 'navigate-down' } },
-    { button: 'DPAD_LEFT', action: { type: 'navigate-left' } },
-    { button: 'DPAD_RIGHT', action: { type: 'navigate-right' } },
+    { button: "DPAD_UP", action: { type: "navigate-up" } },
+    { button: "DPAD_DOWN", action: { type: "navigate-down" } },
+    { button: "DPAD_LEFT", action: { type: "navigate-left" } },
+    { button: "DPAD_RIGHT", action: { type: "navigate-right" } },
     // Action Buttons
-    { button: 'A', action: { type: 'activate' } },
-    { button: 'B', action: { type: 'cancel' } },
-    { button: 'X', action: { type: 'secondary' } },
-    { button: 'Y', action: { type: 'tertiary' } },
+    { button: "A", action: { type: "activate" } },
+    { button: "B", action: { type: "cancel" } },
+    { button: "X", action: { type: "secondary" } },
+    { button: "Y", action: { type: "tertiary" } },
     // Shoulder Buttons - Scroll
-    { button: 'LT', action: { type: 'scroll-up' } },
-    { button: 'RT', action: { type: 'scroll-down' } },
+    { button: "LT", action: { type: "scroll-up" } },
+    { button: "RT", action: { type: "scroll-down" } },
     // Shoulder Buttons - Tabs
-    { button: 'LB', action: { type: 'prev-tab' } },
-    { button: 'RB', action: { type: 'next-tab' } }
-  ]
-}
+    { button: "LB", action: { type: "prev-tab" } },
+    { button: "RB", action: { type: "next-tab" } },
+  ],
+};
 
-type GamepadEventCallback = (action: GamepadActionConfig) => void
+type GamepadEventCallback = (action: GamepadActionConfig) => void;
 
 export class GamepadManager {
-  private config: GamepadConfig = DEFAULT_CONFIG
-  private isListening = false
-  private pollIntervalId: number | null = null
-  private pressedButtons: Set<string> = new Set<string>()
-  private comboCooldown: number = 0
-  private priceCheckCooldown: number = 0
-  private listeners: Set<GamepadEventCallback> = new Set<GamepadEventCallback>()
-  private static instance: GamepadManager | null = null
+  private config: GamepadConfig = DEFAULT_CONFIG;
+  private isListening = false;
+  private pollIntervalId: number | null = null;
+  private pressedButtons: Set<string> = new Set<string>();
+  private comboCooldown: number = 0;
+  private priceCheckCooldown: number = 0;
+  private mapCheckCooldown: number = 0;
+  private listeners: Set<GamepadEventCallback> =
+    new Set<GamepadEventCallback>();
+  private static instance: GamepadManager | null = null;
 
-  private comboTimeout: number = 0
-  private comboStartTime: number = 0
-  private comboButtons: string[] = []
+  private comboTimeout: number = 0;
+  private comboStartTime: number = 0;
+  private comboButtons: string[] = [];
 
-  private constructor () {
-    this.start()
+  private constructor() {
+    this.start();
   }
 
-  static getInstance (): GamepadManager {
+  static getInstance(): GamepadManager {
     if (!GamepadManager.instance) {
-      GamepadManager.instance = new GamepadManager()
+      GamepadManager.instance = new GamepadManager();
     }
-    return GamepadManager.instance
+    return GamepadManager.instance;
   }
 
-  start (): void {
-    if (this.isListening) return
+  start(): void {
+    if (this.isListening) return;
 
-    console.log('[GamepadManager] Starting gamepad polling...')
+    console.log("[GamepadManager] Starting gamepad polling...");
 
     this.pollIntervalId = window.setInterval(() => {
-      this.poll()
-    }, 20)
+      this.poll();
+    }, 20);
 
-    this.isListening = true
+    this.isListening = true;
 
-    this.detectGamepad()
+    this.detectGamepad();
 
-    console.log('[GamepadManager] Gamepad polling started')
+    console.log("[GamepadManager] Gamepad polling started");
   }
 
-  stop (): void {
+  stop(): void {
     if (this.pollIntervalId !== null) {
-      window.clearInterval(this.pollIntervalId)
-      this.pollIntervalId = null
+      window.clearInterval(this.pollIntervalId);
+      this.pollIntervalId = null;
     }
-    this.isListening = false
-    this.pressedButtons.clear()
-    this.comboCooldown = 0
-    this.priceCheckCooldown = 0
-    this.comboTimeout = 0
-    this.comboStartTime = 0
-    this.comboButtons = []
+    this.isListening = false;
+    this.pressedButtons.clear();
+    this.comboCooldown = 0;
+    this.priceCheckCooldown = 0;
+    this.mapCheckCooldown = 0;
+    this.comboTimeout = 0;
+    this.comboStartTime = 0;
+    this.comboButtons = [];
   }
 
-  private detectGamepad (): void {
-    const gamepads = navigator.getGamepads()
+  private detectGamepad(): void {
+    const gamepads = navigator.getGamepads();
     if (!gamepads) {
-      return
+      return;
     }
 
     for (let i = 0; i < gamepads.length; i++) {
-      const gp = gamepads[i]
+      const gp = gamepads[i];
       if (gp) {
-        return
+        return;
       }
     }
   }
 
-  updateConfig (config: Partial<GamepadConfig>): void {
-    const wasEnabled = this.config.enabled
-    this.config = { ...this.config, ...config }
+  updateConfig(config: Partial<GamepadConfig>): void {
+    const wasEnabled = this.config.enabled;
+    this.config = { ...this.config, ...config };
 
     if (this.config.enabled && !wasEnabled) {
-      this.start()
+      this.start();
     } else if (!this.config.enabled && wasEnabled) {
-      this.stop()
+      this.stop();
     }
   }
 
-  onAction (callback: GamepadEventCallback): () => void {
-    const callbackRef: GamepadEventCallback = callback
-    this.listeners.add(callbackRef)
-    return () => this.listeners.delete(callbackRef)
+  onAction(callback: GamepadEventCallback): () => void {
+    const callbackRef: GamepadEventCallback = callback;
+    this.listeners.add(callbackRef);
+    return () => this.listeners.delete(callbackRef);
   }
 
-  private poll (): void {
-    if (!this.config.enabled) return
+  private poll(): void {
+    if (!this.config.enabled) return;
 
     if (this.comboCooldown > 0) {
-      this.comboCooldown--
-      return
+      this.comboCooldown--;
+      return;
     }
 
-    const gamepads = navigator.getGamepads()
-    if (!gamepads) return
+    const gamepads = navigator.getGamepads();
+    if (!gamepads) return;
 
-    let gamepad: Gamepad | null = null
+    let gamepad: Gamepad | null = null;
     for (let i = 0; i < gamepads.length; i++) {
       if (gamepads[i]) {
-        gamepad = gamepads[i]
-        break
+        gamepad = gamepads[i];
+        break;
       }
     }
 
-    if (!gamepad) return
+    if (!gamepad) return;
 
-    const now = Date.now()
+    const now = Date.now();
 
-    const newlyPressed: string[] = []
+    const newlyPressed: string[] = [];
+
+    // Log current state
+    console.log(
+      "[GamepadManager] Poll start - pressedButtons:",
+      Array.from(this.pressedButtons),
+      "comboButtons:",
+      this.comboButtons,
+    );
+
+    // Log all physically pressed buttons
+    const physicallyPressed: string[] = [];
+    for (let i = 0; i < gamepad.buttons.length; i++) {
+      const btn = gamepad.buttons[i];
+      if (btn && btn.pressed) {
+        const btnName = this.getButtonName(i);
+        physicallyPressed.push(btnName);
+      }
+    }
+    console.log(
+      "[GamepadManager] Physically pressed buttons:",
+      physicallyPressed,
+    );
 
     for (let i = 0; i < gamepad.buttons.length; i++) {
-      const btn = gamepad.buttons[i]
+      const btn = gamepad.buttons[i];
       if (btn && btn.pressed) {
-        const btnName = this.getButtonName(i)
+        const btnName = this.getButtonName(i);
         if (!this.pressedButtons.has(btnName)) {
-          newlyPressed.push(btnName)
-          this.pressedButtons.add(btnName)
+          newlyPressed.push(btnName);
+          this.pressedButtons.add(btnName);
+        }
+      }
+    }
 
-          // Start combo timeout on first button press
-          if (this.comboButtons.length === 0) {
-            // Check if this button is part of any configured combo
-            for (const ac of this.config.actions) {
-              if (ac.button.includes('+') && ac.button.split('+').map(b => b.trim()).includes(btnName)) {
-                this.comboStartTime = now
-                this.comboButtons = [btnName]
-                break
-              }
-            }
+    // Process newly pressed buttons to start combos
+    for (const btnName of newlyPressed) {
+      console.log(
+        "[GamepadManager] Button newly pressed:",
+        btnName,
+        "comboButtons:",
+        this.comboButtons,
+        "pressedButtons.size:",
+        this.pressedButtons.size,
+      );
+
+      // Start combo timeout on first button press
+      if (this.comboButtons.length === 0) {
+        // Check if this button is part of any configured combo
+        console.log("[GamepadManager] Looking for combo actions for:", btnName);
+        for (const ac of this.config.actions) {
+          console.log(
+            "[GamepadManager] Checking action:",
+            ac.button,
+            "includes:",
+            ac.button.includes("+"),
+          );
+          if (
+            ac.button.includes("+") &&
+            ac.button
+              .split("+")
+              .map((b) => b.trim())
+              .includes(btnName)
+          ) {
+            this.comboStartTime = now;
+            this.comboButtons = [btnName];
+            console.log(
+              "[GamepadManager] Starting combo with:",
+              btnName,
+              "for action:",
+              ac.button,
+            );
+            break;
           }
         }
       }
     }
 
     for (const btnName of this.pressedButtons) {
-      const btnIndex = this.getButtonIndex(btnName)
+      const btnIndex = this.getButtonIndex(btnName);
       if (btnIndex !== null) {
-        const btn = gamepad.buttons[btnIndex]
+        const btn = gamepad.buttons[btnIndex];
         if (!btn || !btn.pressed) {
-          this.pressedButtons.delete(btnName)
+          this.pressedButtons.delete(btnName);
 
           // Remove button from combo buttons
-          this.comboButtons = this.comboButtons.filter(b => b !== btnName)
+          this.comboButtons = this.comboButtons.filter((b) => b !== btnName);
 
           // Reset combo if the button that caused the timeout is released
-          if (this.comboButtons.length > 0 && btnName === this.comboButtons[0]) {
-            this.comboButtons = []
-            this.comboStartTime = 0
+          if (
+            this.comboButtons.length > 0 &&
+            btnName === this.comboButtons[0]
+          ) {
+            this.comboButtons = [];
+            this.comboStartTime = 0;
           }
         }
       }
     }
 
     // Check if combo timeout has expired
-    if (this.comboButtons.length > 0 && (now - this.comboStartTime) > 800) {
-      this.comboButtons = []
-      this.comboStartTime = 0
+    if (this.comboButtons.length > 0 && now - this.comboStartTime > 800) {
+      console.log("[GamepadManager] Combo timeout expired:", this.comboButtons);
+      this.comboButtons = [];
+      this.comboStartTime = 0;
+
+      // If there are still pressed buttons, start a new combo with the first one
+      if (this.pressedButtons.size > 0) {
+        const firstPressed = Array.from(this.pressedButtons)[0];
+        for (const ac of this.config.actions) {
+          if (
+            ac.button.includes("+") &&
+            ac.button
+              .split("+")
+              .map((b) => b.trim())
+              .includes(firstPressed)
+          ) {
+            this.comboStartTime = now;
+            this.comboButtons = [firstPressed];
+            console.log(
+              "[GamepadManager] Restarting combo with:",
+              firstPressed,
+              "after timeout",
+            );
+            break;
+          }
+        }
+      }
     }
 
     for (const actionConfig of this.config.actions) {
-      if (actionConfig.button.includes('+')) {
-        const comboButtons = actionConfig.button.split('+').map(b => b.trim())
+      if (actionConfig.button.includes("+")) {
+        const comboButtons = actionConfig.button
+          .split("+")
+          .map((b) => b.trim());
+
+        console.log(
+          "[GamepadManager] Checking combo:",
+          actionConfig.button,
+          "comboButtons[0]:",
+          this.comboButtons[0],
+          "comboButtons[0] === comboButtons[0]:",
+          this.comboButtons[0] === comboButtons[0],
+        );
 
         // Only check combo if we're in the timeout window and we're pressing the right buttons
-        if (this.comboButtons.length > 0 && this.comboButtons[0] === comboButtons[0] && (now - this.comboStartTime) <= 800) {
-          const allPressed = comboButtons.every(btn => this.pressedButtons.has(btn))
+        if (
+          this.comboButtons.length > 0 &&
+          this.comboButtons[0] === comboButtons[0] &&
+          now - this.comboStartTime <= 800
+        ) {
+          const allPressed = comboButtons.every((btn) =>
+            this.pressedButtons.has(btn),
+          );
+
+          console.log(
+            "[GamepadManager] Combo check:",
+            actionConfig.button,
+            "allPressed:",
+            allPressed,
+          );
 
           if (allPressed) {
-            this.emitAction(actionConfig)
-            this.comboCooldown = 10
-            this.comboButtons = []
-            this.comboStartTime = 0
-            break
+            console.log(
+              "[GamepadManager] Combo detected:",
+              actionConfig.button,
+              "->",
+              actionConfig.action.type,
+            );
+            this.emitAction(actionConfig);
+            this.comboCooldown = 10;
+            this.comboButtons = [];
+            this.comboStartTime = 0;
+            // Remove combo buttons from pressedButtons to allow reverse combo
+            console.log(
+              "[GamepadManager] Removing combo buttons from pressedButtons:",
+              comboButtons,
+            );
+            comboButtons.forEach((btn) => {
+              this.pressedButtons.delete(btn);
+              console.log(
+                "[GamepadManager] Deleted",
+                btn,
+                "from pressedButtons, size:",
+                this.pressedButtons.size,
+              );
+            });
+            break;
           }
         }
       }
     }
 
     for (const btnName of newlyPressed) {
-      const actionConfig = this.config.actions.find(a =>
-        !a.button.includes('+') && a.button === btnName
-      )
+      const actionConfig = this.config.actions.find(
+        (a) => !a.button.includes("+") && a.button === btnName,
+      );
 
       if (actionConfig) {
-        this.emitAction(actionConfig)
+        this.emitAction(actionConfig);
       }
     }
 
     if (this.comboCooldown > 0) {
-      this.comboCooldown--
+      this.comboCooldown--;
     }
 
     if (this.priceCheckCooldown > 0) {
-      this.priceCheckCooldown--
+      this.priceCheckCooldown--;
+    }
+
+    if (this.mapCheckCooldown > 0) {
+      this.mapCheckCooldown--;
     }
   }
 
-  private getButtonName (index: number): string {
+  private getButtonName(index: number): string {
     // Custom mapping for non-standard gamepads (PS4/PS5, etc.)
     // Standard Xbox mapping: 12=DOWN, 13=RIGHT, 14=LEFT, 15=UP
     // This gamepad: 12=UP, 13=DOWN, 14=LEFT, 15=RIGHT
     const names: Record<number, string> = {
-      0: 'A',
-      1: 'B',
-      2: 'X',
-      3: 'Y',
-      4: 'LB',
-      5: 'RB',
-      6: 'LT',
-      7: 'RT',
-      8: 'BACK',
-      9: 'START',
-      10: 'L3',
-      11: 'R3',
-      12: 'DPAD_UP',      // Standard: DPAD_DOWN
-      13: 'DPAD_DOWN',    // Standard: DPAD_RIGHT
-      14: 'DPAD_LEFT',
-      15: 'DPAD_RIGHT'    // Standard: DPAD_UP
-    }
-    return names[index] || `BTN${index}`
+      0: "A",
+      1: "B",
+      2: "X",
+      3: "Y",
+      4: "LB",
+      5: "RB",
+      6: "LT",
+      7: "RT",
+      8: "BACK",
+      9: "START",
+      10: "L3",
+      11: "R3",
+      12: "DPAD_UP", // Standard: DPAD_DOWN
+      13: "DPAD_DOWN", // Standard: DPAD_RIGHT
+      14: "DPAD_LEFT",
+      15: "DPAD_RIGHT", // Standard: DPAD_UP
+    };
+    return names[index] || `BTN${index}`;
   }
 
-  private getButtonIndex (buttonName: string): number | null {
-    const normalized = buttonName.toUpperCase().replace(/\s+/g, '_')
+  private getButtonIndex(buttonName: string): number | null {
+    const normalized = buttonName.toUpperCase().replace(/\s+/g, "_");
     const buttonMap: Record<string, number> = {
       A: 0,
       B: 1,
@@ -342,53 +496,89 @@ export class GamepadManager {
       L3: 10,
       R3: 11,
       // Custom mapping for non-standard gamepads
-      DPAD_UP: 12,       // Standard: 15
-      DPAD_DOWN: 13,     // Standard: 12
+      DPAD_UP: 12, // Standard: 15
+      DPAD_DOWN: 13, // Standard: 12
       DPAD_LEFT: 14,
-      DPAD_RIGHT: 15,    // Standard: 13
+      DPAD_RIGHT: 15, // Standard: 13
       // Aliases
       UP: 12,
       DOWN: 13,
       LEFT: 14,
-      RIGHT: 15
-    }
-    return buttonMap[normalized] ?? null
+      RIGHT: 15,
+    };
+    return buttonMap[normalized] ?? null;
   }
 
-  private emitAction (actionConfig: GamepadActionConfig): void {
-    const action = actionConfig.action
+  private emitAction(actionConfig: GamepadActionConfig): void {
+    const action = actionConfig.action;
 
-    if (action.type === 'price-check') {
+    console.log("[GamepadManager] emitAction:", action.type);
+
+    if (action.type === "price-check") {
       if (this.priceCheckCooldown > 0) {
-        return
+        console.log("[GamepadManager] price-check on cooldown");
+        return;
       }
-      this.priceCheckCooldown = 50
+      this.priceCheckCooldown = 50;
+    }
+
+    if (action.type === "map-check") {
+      if (this.mapCheckCooldown > 0) {
+        console.log("[GamepadManager] map-check on cooldown");
+        return;
+      }
+      this.mapCheckCooldown = 50;
     }
 
     if (Host) {
+      console.log(
+        "[GamepadManager] Sending gamepad-action to main:",
+        action.type,
+      );
       Host.sendEvent({
-        name: 'RENDERER->MAIN::gamepad-action',
+        name: "RENDERER->MAIN::gamepad-action",
         payload: {
           type: action.type as any,
           target: actionConfig.target ?? action.target,
-          focusOverlay: action.focusOverlay
-        }
-      })
+          focusOverlay: action.focusOverlay,
+        },
+      });
+    } else {
+      console.warn(
+        "[GamepadManager] Host not available, action not sent:",
+        action.type,
+      );
     }
 
     for (const listener of this.listeners) {
-      listener(actionConfig)
+      listener(actionConfig);
     }
   }
 
-  static getAvailableButtons (): string[] {
-    return ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'START', 'BACK', 'L3', 'R3', 'DOWN', 'LEFT', 'RIGHT']
+  static getAvailableButtons(): string[] {
+    return [
+      "A",
+      "B",
+      "X",
+      "Y",
+      "LB",
+      "RB",
+      "LT",
+      "RT",
+      "START",
+      "BACK",
+      "L3",
+      "R3",
+      "DOWN",
+      "LEFT",
+      "RIGHT",
+    ];
   }
 
-  static destroy (): void {
+  static destroy(): void {
     if (GamepadManager.instance) {
-      GamepadManager.instance.stop()
-      GamepadManager.instance = null
+      GamepadManager.instance.stop();
+      GamepadManager.instance = null;
     }
   }
 }

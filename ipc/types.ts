@@ -222,11 +222,22 @@ type IpcGamepadAction = Event<
       focusOverlay?: boolean;
     }
   | {
+      type: "check-item";
+      focusOverlay?: boolean;
+    }
+  | {
       type: "price-check";
       focusOverlay?: boolean;
     }
   | {
+      type: "map-check";
+      focusOverlay?: boolean;
+    }
+  | {
       type: "close-price-check";
+    }
+  | {
+      type: "close-map-check";
     }
   | {
       type: "trigger-event";
