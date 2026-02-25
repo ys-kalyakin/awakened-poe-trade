@@ -30,7 +30,7 @@
       :item="item" />
     <div v-if="!doSearch" class="flex justify-between items-center">
       <div class="flex w-40" @mouseenter="handleSearchMouseenter">
-         <button class="btn" @click="doSearch = true" style="min-width: 5rem;" tabindex="0">{{ t('Search') }}</button>
+         <button id="price-check-search-btn" class="btn" @click="doSearch = true" style="min-width: 5rem;" tabindex="0">{{ t('Search') }}</button>
       </div>
       <trade-links v-if="tradeAPI === 'trade'"
         :get-link="makeTradeLink" />
@@ -139,6 +139,12 @@ export default defineComponent({
               })
 
               focusManager.setupFocus(container)
+              setTimeout(() => {
+                focusManager.refreshContext()
+                if (!doSearch.value) {
+                  focusManager.focusElementBySelector('#price-check-search-btn')
+                }
+              }, 150)
             } else {
               console.error('[CheckedItem] Container not found!')
             }
@@ -172,6 +178,8 @@ export default defineComponent({
     }
 
     watch(() => props.item, (item, prevItem) => {
+      console.log('[CheckedItem] Item changed, prevItem:', prevItem ? prevItem.info.refName : 'null', 'newItem:', item.info.refName)
+
       const prevCurrency = (presets.value != null) ? itemFilters.value.trade.currency : undefined
 
       presets.value = createPresets(item, {
@@ -204,6 +212,18 @@ export default defineComponent({
       }
 
       tradeAPI.value = apiToSatisfySearch(props.item, itemStats.value, itemFilters.value)
+
+      if (focusManager) {
+        nextTick(() => {
+          setTimeout(() => {
+            console.log('[CheckedItem] Refreshing context after item change')
+            focusManager.refreshContext()
+            if (!doSearch.value) {
+              focusManager.focusElementBySelector('#price-check-search-btn')
+            }
+          }, 100)
+        })
+      }
     }, { immediate: true })
 
     watch(() => [props.item, doSearch.value], () => {
@@ -215,6 +235,9 @@ export default defineComponent({
       nextTick(() => {
         if (tradeService.value) {
           tradeService.value.execSearch()
+        }
+        if (focusManager) {
+          focusManager.refreshContext()
         }
       })
     }, { deep: false, immediate: true })
@@ -236,6 +259,11 @@ export default defineComponent({
       if (cItem === pItem && cTrade !== pTrade) {
         nextTick(() => {
           doSearch.value = true
+          if (focusManager) {
+            setTimeout(() => {
+              focusManager.refreshContext()
+            }, 50)
+          }
         })
       }
     }, { deep: false })
@@ -304,6 +332,11 @@ export default defineComponent({
         ({ id: preset.id, active: (preset.id === presets.value.active) }))),
       selectPreset (id: string) {
         presets.value.active = id
+        if (focusManager) {
+          nextTick(() => {
+            focusManager.refreshContext()
+          })
+        }
       },
       makeTradeLink () {
         return `https://${getTradeEndpoint()}/trade/search/${itemFilters.value.trade.league}?q=${JSON.stringify(createTradeRequest(itemFilters.value, itemStats.value, props.item))}`

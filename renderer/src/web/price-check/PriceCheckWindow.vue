@@ -41,6 +41,7 @@
         <template v-else-if="item?.isOk()">
           <unidentified-resolver :item="item.value" @identify="handleIdentification($event)" />
           <checked-item v-if="isLeagueSelected"
+            :key="`${item.value.info.namespace}-${item.value.info.refName}-${item.value.rarity}`"
             :item="item.value" :advanced-check="advancedCheck" />
         </template>
         <div v-if="isBrowserShown" class="bg-gray-900 px-6 py-2 truncate">
@@ -200,6 +201,14 @@ export default defineComponent({
 
       if (item.value.isOk()) {
         queuePricesFetch()
+      }
+
+      if (focusManager) {
+        nextTick(() => {
+          setTimeout(() => {
+            focusManager.focusElementBySelector('#price-check-search-btn')
+          }, 100)
+        })
       }
     })
 
