@@ -141,8 +141,6 @@ export class GamepadManager {
     this.detectGamepad()
 
     console.log('[GamepadManager] Gamepad polling started')
-    console.log('[GamepadManager] Configured actions:', this.config.actions)
-    console.log('[GamepadManager] Default config:', DEFAULT_CONFIG)
   }
 
   stop (): void {
@@ -212,7 +210,6 @@ export class GamepadManager {
     if (!gamepad) return
 
     const now = Date.now()
-    console.log(`[Gamepad] Poll: pressedButtons=${Array.from(this.pressedButtons)}, comboCooldown=${this.comboCooldown}, priceCheckCooldown=${this.priceCheckCooldown}, comboTimeout=${this.comboTimeout}`)
 
     const newlyPressed: string[] = []
 
@@ -223,7 +220,6 @@ export class GamepadManager {
         if (!this.pressedButtons.has(btnName)) {
           newlyPressed.push(btnName)
           this.pressedButtons.add(btnName)
-          console.log(`[Gamepad] Button pressed: ${btnName} (index ${i})`)
 
           // Start combo timeout on first button press
           if (this.comboButtons.length === 0) {
@@ -232,7 +228,6 @@ export class GamepadManager {
               if (ac.button.includes('+') && ac.button.split('+').map(b => b.trim()).includes(btnName)) {
                 this.comboStartTime = now
                 this.comboButtons = [btnName]
-                console.log(`[Gamepad] Combo started with ${btnName}, timeout will expire at ${now + 800}`)
                 break
               }
             }
@@ -247,15 +242,12 @@ export class GamepadManager {
         const btn = gamepad.buttons[btnIndex]
         if (!btn || !btn.pressed) {
           this.pressedButtons.delete(btnName)
-          console.log(`[Gamepad] Button released: ${btnName}`)
 
           // Remove button from combo buttons
           this.comboButtons = this.comboButtons.filter(b => b !== btnName)
-          console.log(`[Gamepad] Removed ${btnName} from combo buttons, remaining: ${this.comboButtons.join(', ')}`)
 
           // Reset combo if the button that caused the timeout is released
           if (this.comboButtons.length > 0 && btnName === this.comboButtons[0]) {
-            console.log(`[Gamepad] Button ${btnName} released, combo reset`)
             this.comboButtons = []
             this.comboStartTime = 0
           }
@@ -265,7 +257,6 @@ export class GamepadManager {
 
     // Check if combo timeout has expired
     if (this.comboButtons.length > 0 && (now - this.comboStartTime) > 800) {
-      console.log(`[Gamepad] Combo timeout expired: ${this.comboButtons.join('+')} not completed in 800ms`)
       this.comboButtons = []
       this.comboStartTime = 0
     }
@@ -277,10 +268,8 @@ export class GamepadManager {
         // Only check combo if we're in the timeout window and we're pressing the right buttons
         if (this.comboButtons.length > 0 && this.comboButtons[0] === comboButtons[0] && (now - this.comboStartTime) <= 800) {
           const allPressed = comboButtons.every(btn => this.pressedButtons.has(btn))
-          console.log(`[Gamepad] Checking combo: ${actionConfig.button}, buttons: ${comboButtons.join(', ')}, allPressed: ${allPressed}, inTimeoutWindow: true, comboButtons: ${this.comboButtons.join(', ')}`)
 
           if (allPressed) {
-            console.log(`[Gamepad] Combo triggered: ${actionConfig.button}`)
             this.emitAction(actionConfig)
             this.comboCooldown = 10
             this.comboButtons = []
@@ -297,7 +286,6 @@ export class GamepadManager {
       )
 
       if (actionConfig) {
-        console.log(`[Gamepad] Single button triggered: ${btnName}`)
         this.emitAction(actionConfig)
       }
     }
@@ -312,6 +300,9 @@ export class GamepadManager {
   }
 
   private getButtonName (index: number): string {
+    // Custom mapping for non-standard gamepads (PS4/PS5, etc.)
+    // Standard Xbox mapping: 12=DOWN, 13=RIGHT, 14=LEFT, 15=UP
+    // This gamepad: 12=UP, 13=DOWN, 14=LEFT, 15=RIGHT
     const names: Record<number, string> = {
       0: 'A',
       1: 'B',
@@ -325,10 +316,10 @@ export class GamepadManager {
       9: 'START',
       10: 'L3',
       11: 'R3',
-      12: 'DPAD_DOWN',
-      13: 'DPAD_RIGHT',
+      12: 'DPAD_UP',      // Standard: DPAD_DOWN
+      13: 'DPAD_DOWN',    // Standard: DPAD_RIGHT
       14: 'DPAD_LEFT',
-      15: 'DPAD_UP'
+      15: 'DPAD_RIGHT'    // Standard: DPAD_UP
     }
     return names[index] || `BTN${index}`
   }
@@ -350,13 +341,16 @@ export class GamepadManager {
       RS: 11,
       L3: 10,
       R3: 11,
-      DPAD_DOWN: 12,
+      // Custom mapping for non-standard gamepads
+      DPAD_UP: 12,       // Standard: 15
+      DPAD_DOWN: 13,     // Standard: 12
       DPAD_LEFT: 14,
-      DPAD_RIGHT: 13,
-      DPAD_UP: 15,
-      DOWN: 12,
+      DPAD_RIGHT: 15,    // Standard: 13
+      // Aliases
+      UP: 12,
+      DOWN: 13,
       LEFT: 14,
-      RIGHT: 13
+      RIGHT: 15
     }
     return buttonMap[normalized] ?? null
   }
@@ -364,24 +358,14 @@ export class GamepadManager {
   private emitAction (actionConfig: GamepadActionConfig): void {
     const action = actionConfig.action
 
-    console.log('[GamepadManager] Emitting action:', {
-      type: action.type,
-      button: actionConfig.button,
-      target: actionConfig.target || action.target,
-      focusOverlay: action.focusOverlay
-    })
-
     if (action.type === 'price-check') {
       if (this.priceCheckCooldown > 0) {
-        console.log('[GamepadManager] Price-check cooldown active, skipping')
         return
       }
       this.priceCheckCooldown = 50
-      console.log(`[GamepadManager] Price-check cooldown set to ${this.priceCheckCooldown}`)
     }
 
     if (Host) {
-      console.log('[GamepadManager] Sending to Host...')
       Host.sendEvent({
         name: 'RENDERER->MAIN::gamepad-action',
         payload: {

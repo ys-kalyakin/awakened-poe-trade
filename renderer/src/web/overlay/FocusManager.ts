@@ -81,7 +81,9 @@ export class FocusManager {
     }
 
     const currentElement = context.elements[context.currentIndex]
-    const nextElement = this.findBestNextElement(currentElement, context.elements, direction)
+    
+    // Always use circular navigation based on DOM order
+    const nextElement = this.findCircularNextElement(currentElement, context.elements, direction)
 
     if (nextElement) {
       const newIndex = context.elements.indexOf(nextElement)
@@ -100,7 +102,8 @@ export class FocusManager {
     const centerX = currentRect.left + currentRect.width / 2
     const centerY = currentRect.top + currentRect.height / 2
 
-    let candidates: { element: HTMLElement, score: number }[] = []
+    let candidates: { element: HTMLElement, score: number, reason: string }[] = []
+    let fallbackCandidates: { element: HTMLElement, score: number, reason: string }[] = []
 
     for (const element of elements) {
       if (element === currentElement) continue
@@ -128,65 +131,91 @@ export class FocusManager {
       // Check if element is in the correct direction with deadzone
       let isValidCandidate = false
       let directionScore = 0
+      let isFallback = false
 
       switch (direction) {
         case 'up':
-          // Element must be above current (smaller Y)
-          // Use top edge comparison for more reliable detection
-          if (rect.top < currentRect.top - 5) {
+          // Primary: element must be above current
+          if (elCenterY < centerY - 10) {
             isValidCandidate = true
-            // Prefer elements that are more above and aligned horizontally
             const verticalDist = centerY - elCenterY
             const horizontalAlign = Math.abs(dx)
-            // Bonus for horizontal alignment
-            const alignmentBonus = horizontalAlign < 20 ? 50 : 0
+            const alignmentBonus = horizontalAlign < 30 ? 100 : 0
             directionScore = verticalDist * 3 + alignmentBonus - horizontalAlign
+          } else {
+            // Fallback: any element with smaller Y
+            if (elCenterY < centerY) {
+              isFallback = true
+              const verticalDist = centerY - elCenterY
+              const horizontalAlign = Math.abs(dx)
+              directionScore = verticalDist * 2 - horizontalAlign
+            }
           }
           break
         case 'down':
-          // Element must be below current (larger Y)
-          // Use top edge comparison for more reliable detection
-          if (rect.top > currentRect.bottom + 5) {
+          // Primary: element must be below current
+          if (elCenterY > centerY + 10) {
             isValidCandidate = true
-            // Prefer elements that are more below and aligned horizontally
             const verticalDist = elCenterY - centerY
             const horizontalAlign = Math.abs(dx)
-            // Bonus for horizontal alignment
-            const alignmentBonus = horizontalAlign < 20 ? 50 : 0
+            const alignmentBonus = horizontalAlign < 30 ? 100 : 0
             directionScore = verticalDist * 3 + alignmentBonus - horizontalAlign
+          } else {
+            // Fallback: any element with larger Y
+            if (elCenterY > centerY) {
+              isFallback = true
+              const verticalDist = elCenterY - centerY
+              const horizontalAlign = Math.abs(dx)
+              directionScore = verticalDist * 2 - horizontalAlign
+            }
           }
           break
         case 'left':
-          // Element must be to the left (smaller X)
-          if (rect.left < currentRect.left - 5) {
+          if (elCenterX < centerX - 10) {
             isValidCandidate = true
-            // Prefer elements that are more to the left and aligned vertically
             const horizontalDist = centerX - elCenterX
             const verticalAlign = Math.abs(dy)
-            // Bonus for vertical alignment
-            const alignmentBonus = verticalAlign < 20 ? 50 : 0
+            const alignmentBonus = verticalAlign < 30 ? 100 : 0
             directionScore = horizontalDist * 3 + alignmentBonus - verticalAlign
+          } else {
+            if (elCenterX < centerX) {
+              isFallback = true
+              const horizontalDist = centerX - elCenterX
+              const verticalAlign = Math.abs(dy)
+              directionScore = horizontalDist * 2 - verticalAlign
+            }
           }
           break
         case 'right':
-          // Element must be to the right (larger X)
-          if (rect.left > currentRect.right + 5) {
+          if (elCenterX > centerX + 10) {
             isValidCandidate = true
-            // Prefer elements that are more to the right and aligned vertically
             const horizontalDist = elCenterX - centerX
             const verticalAlign = Math.abs(dy)
-            // Bonus for vertical alignment
-            const alignmentBonus = verticalAlign < 20 ? 50 : 0
+            const alignmentBonus = verticalAlign < 30 ? 100 : 0
             directionScore = horizontalDist * 3 + alignmentBonus - verticalAlign
+          } else {
+            if (elCenterX > centerX) {
+              isFallback = true
+              const horizontalDist = elCenterX - centerX
+              const verticalAlign = Math.abs(dy)
+              directionScore = horizontalDist * 2 - verticalAlign
+            }
           }
           break
       }
 
       if (isValidCandidate) {
-        // Lower score is better (closer and better aligned)
         const score = distance - directionScore
-        candidates.push({ element, score })
+        candidates.push({ element, score, reason: 'primary' })
+      } else if (isFallback) {
+        const score = distance - directionScore
+        fallbackCandidates.push({ element, score, reason: 'fallback' })
       }
+    }
+
+    // Use fallback candidates if no primary candidates
+    if (candidates.length === 0 && fallbackCandidates.length > 0) {
+      candidates = fallbackCandidates
     }
 
     if (candidates.length === 0) {
@@ -204,52 +233,25 @@ export class FocusManager {
     direction: Direction
   ): HTMLElement | null {
     const currentIndex = elements.indexOf(currentElement)
-
-    let visibleElements: HTMLElement[] = []
-    for (const element of elements) {
-      if (element === currentElement) continue
-
-      const rect = element.getBoundingClientRect()
-      const computedStyle = window.getComputedStyle(element)
-      const isVisible = (
-        computedStyle.display !== 'none' &&
-        computedStyle.visibility !== 'hidden' &&
-        computedStyle.opacity !== '0' &&
-        rect.width > 0 &&
-        rect.height > 0
-      )
-
-      if (isVisible) {
-        visibleElements.push(element)
-      }
+    
+    if (currentIndex === -1) {
+      return elements[0]
     }
 
-    if (visibleElements.length === 0) {
-      return null
+    // For DOWN/RIGHT: go to next element in DOM order (or wrap to first)
+    // For UP/LEFT: go to previous element in DOM order (or wrap to last)
+    // DOM order corresponds to visual top-to-bottom order
+    if (direction === 'down' || direction === 'right') {
+      const nextIndex = (currentIndex + 1) % elements.length
+      return elements[nextIndex]
+    }
+    
+    if (direction === 'up' || direction === 'left') {
+      const prevIndex = currentIndex <= 0 ? elements.length - 1 : currentIndex - 1
+      return elements[prevIndex]
     }
 
-    if (visibleElements.length === 1) {
-      return visibleElements[0]
-    }
-
-    let nextIndex: number
-
-    switch (direction) {
-      case 'up':
-      case 'down':
-      case 'left':
-      case 'right':
-        nextIndex = this.findNextInOrder(currentIndex, visibleElements, direction)
-        break
-      default:
-        return visibleElements[0]
-    }
-
-    if (nextIndex >= 0 && nextIndex < visibleElements.length) {
-      return visibleElements[nextIndex]
-    }
-
-    return null
+    return elements[0]
   }
 
   private findNextInOrder (
@@ -461,9 +463,22 @@ export class FocusManager {
 
     const elements = Array.from(container.querySelectorAll<HTMLElement>(selector))
 
-    // Filter out elements with data-skip-focus attribute
+    // Filter out elements with data-skip-focus attribute or hidden
     const filteredElements = elements.filter(el => {
-      return el.getAttribute('data-skip-focus') !== 'true'
+      // Skip elements with data-skip-focus
+      if (el.getAttribute('data-skip-focus') === 'true') return false
+      
+      // Skip hidden elements
+      const computedStyle = window.getComputedStyle(el)
+      if (computedStyle.display === 'none' || 
+          computedStyle.visibility === 'hidden' || 
+          computedStyle.opacity === '0') return false
+      
+      // Skip elements with zero dimensions
+      const rect = el.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return false
+      
+      return true
     })
 
     return filteredElements

@@ -222,7 +222,14 @@ export default defineComponent({
 
     if (focusManager) {
       MainProcess.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
-        console.log('[PriceCheckWindow] Gamepad navigation:', e.type)
+        // Forward navigation events to CheckedItem
+        if (['navigate-up', 'navigate-down', 'navigate-left', 'navigate-right', 'activate', 'scroll-up', 'scroll-down', 'prev-tab', 'next-tab'].includes(e.type)) {
+          MainProcess.sendEvent({
+            name: 'MAIN->CLIENT::gamepad-navigation',
+            payload: { type: e.type }
+          })
+          return
+        }
 
         switch (e.type) {
           case 'cancel':

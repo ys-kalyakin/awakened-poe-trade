@@ -60,11 +60,9 @@ export default defineComponent({
 
     if (Host.isElectron) {
       GamepadManager.getInstance()
-      console.log('[Overlay] Gamepad manager initialized')
     }
 
     const focusManager = useFocusManager()
-    console.log('[Overlay] Focus manager initialized')
 
     provide('focusManager', focusManager)
 
@@ -75,15 +73,6 @@ export default defineComponent({
           focusManager.setupFocus(appElement)
         }
       })
-    })
-
-    console.log('[Overlay] AppConfig loaded:', {
-      widgets: AppConfig().widgets.map((w: any) => ({
-        type: w.wmType,
-        wmId: w.wmId,
-        wmWants: w.wmWants,
-        wmZorder: w.wmZorder
-      }))
     })
 
     const active = shallowRef(!Host.isElectron)
@@ -143,8 +132,6 @@ export default defineComponent({
     })
 
     Host.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
-      console.log('[Overlay] Gamepad navigation event:', e.type)
-
       const topmost = topmostOrExclusiveWidget.value
       if (topmost.wmType === 'price-check') {
         MainProcess.sendEvent({
@@ -172,65 +159,32 @@ export default defineComponent({
     })
 
     Host.onEvent('MAIN->CLIENT::widget-action', (e) => {
-      console.log('[Overlay] ====== WIDGET-ACTION EVENT START ======')
-      console.log('[Overlay] Event:', e)
-      console.log('[Overlay] Host.isElectron:', Host.isElectron)
-      console.log('[Overlay] e.target:', e.target)
-
       if (e.target === 'price-check' && Host.isElectron) {
-        console.log('[Overlay] ✅ Price-check target detected, filtering widgets...')
-
         const allWidgets = AppConfig().widgets
-        console.log('[Overlay] All widgets:', allWidgets.map((w: any) => ({
-          type: w.wmType,
-          wmId: w.wmId,
-          wmWants: w.wmWants,
-          wmZorder: w.wmZorder,
-          wmFlags: w.wmFlags
-        })))
-
         const priceCheckWidgets = allWidgets.filter((w: any) => w.wmType === 'price-check')
-        console.log('[Overlay] Found', priceCheckWidgets.length, 'price-check widgets')
 
         if (priceCheckWidgets.length === 0) {
-          console.log('[Overlay] ❌ Price-check widget NOT found in config!')
-          console.log('[Overlay] Available widget types:', allWidgets.map((w: any) => w.wmType))
           return
         }
 
         for (const priceCheck of priceCheckWidgets) {
-          console.log('[Overlay] Processing price-check widget:')
-          console.log('[Overlay]   wmId:', priceCheck.wmId)
-          console.log('[Overlay]   wmType:', priceCheck.wmType)
-          console.log('[Overlay]   wmWants:', priceCheck.wmWants)
-          console.log('[Overlay]   wmZorder:', priceCheck.wmZorder)
-          console.log('[Overlay]   wmFlags:', priceCheck.wmFlags)
-
           if (priceCheck.wmId === undefined || priceCheck.wmId === 0) {
-            console.log('[Overlay] ❌ Price-check widget has invalid wmId')
             continue
           }
 
           if (e.action === 'hide') {
-            console.log('[Overlay] ✅ Hiding price-check widget', priceCheck.wmId)
             hide(priceCheck.wmId)
             if (Host.isElectron) {
               Host.sendEvent({ name: 'OVERLAY->MAIN::focus-game', payload: undefined })
             }
           } else if (priceCheck.wmWants === 'hide') {
-            console.log('[Overlay] ✅ Showing price-check widget', priceCheck.wmId)
             show(priceCheck.wmId)
-          } else {
-            console.log('[Overlay] ⚠️  Price-check widget already shown, wmWants:', priceCheck.wmWants)
           }
         }
       }
-      console.log('[Overlay] ====== WIDGET-ACTION EVENT END ======')
     })
 
     Host.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
-      console.log('[Overlay] Gamepad navigation event:', e.type)
-
       const topmost = topmostOrExclusiveWidget.value
       if (topmost.wmType === 'price-check') {
         MainProcess.sendEvent({

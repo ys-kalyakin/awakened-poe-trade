@@ -36,7 +36,7 @@
       <trade-links v-if="tradeAPI === 'trade'"
         :get-link="makeTradeLink" />
     </div>
-    <div v-else-if="doSearch" class="flex justify-between items-center">
+    <div v-else-if="doSearch && !tradeService" class="flex justify-between items-center">
       <div class="flex w-40">
          <div class="text-gray-500 px-2 py-1">Loading...</div>
       </div>
@@ -287,8 +287,9 @@ export default defineComponent({
         doSearch.value = false
         if (focusManager) {
           setTimeout(() => {
+            focusManager.refreshContext()
             focusManager.focusElementBySelector('#price-check-search-btn')
-          }, 50)
+          }, 100)
         }
       }
     }, { deep: true })
@@ -299,8 +300,9 @@ export default defineComponent({
         doSearch.value = false
         if (focusManager) {
           setTimeout(() => {
+            focusManager.refreshContext()
             focusManager.focusElementBySelector('#price-check-search-btn')
-          }, 50)
+          }, 100)
         }
       }
     }, { deep: true })
@@ -342,8 +344,9 @@ export default defineComponent({
       doSearch.value = false
       if (focusManager) {
         setTimeout(() => {
+          focusManager.refreshContext()
           focusManager.focusElementBySelector('#price-check-search-btn')
-        }, 50)
+        }, 100)
       }
     }
 
