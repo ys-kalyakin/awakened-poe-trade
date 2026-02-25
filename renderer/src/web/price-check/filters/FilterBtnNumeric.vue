@@ -69,6 +69,7 @@ export default defineComponent({
     }, { immediate: true })
 
     return {
+      handleClick,
       inputMin: computed<number | ''>({
         get () { return _inputMin.value },
         set (value) {

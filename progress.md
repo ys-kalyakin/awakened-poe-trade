@@ -4,7 +4,85 @@
 
 ### Current Issues
 
-**No critical issues**
+**Current Issues**
+
+- ⚠️ Testing with debounce - Added toggle debounce to prevent double clicks
+
+### Checkbox Fix - Force Component Re-creation + Toggle Debounce (2026-02-25)
+
+Fixed issue where checkboxes stop working on second item evaluation.
+
+**Root Cause #1:** Component Re-creation
+The problem was that `checkedItemId` was an internal ref in CheckedItem, which got reset when component re-created. The parent's `itemKey` was not being passed down.
+
+**Root Cause #2:** Double Toggle
+On second item, the toggle function was being called twice in rapid succession (within milliseconds), causing the checkbox to flip back to its original state.
+
+**Changes:**
+
+**PriceCheckWindow.vue:**
+- Simplified CheckedItem key to use only `itemKey`: `:key="checked-${itemKey}"`
+- Passes `:item-key="itemKey"` as a prop to CheckedItem
+
+**CheckedItem.vue:**
+- Added `itemKey` prop (required: true)
+- Removed internal `checkedItemId` ref
+- Uses `props.itemKey` for FiltersBlock key
+
+**FiltersBlock.vue:**
+- Simplified FilterModifier keys to use index only: `:key="idx"`
+- Removed `<form>` element to eliminate form submission issues
+
+**FilterModifier.vue:**
+- Added `lastToggleTime` ref to track last toggle time
+- Added `TOGGLE_DEBOUNCE = 100` constant (milliseconds)
+- Added debounce check in `toggleFilter`:
+  - Ignores toggles that occur within 100ms of the last toggle
+  - Calls `e.preventDefault()` and `e.stopPropagation()` to prevent event bubbling
+- Enhanced console logging with:
+  - `timeSinceLastToggle` to see gap between toggles
+  - `target` and `currentTarget` element tags
+  - Exact timestamps
+
+**How it works now:**
+1. When a new item arrives, `itemKey` in PriceCheckWindow increments
+2. CheckedItem's key changes, forcing Vue to destroy and recreate it
+3. `itemKey` is passed to CheckedItem as a prop
+4. FiltersBlock uses `itemKey` in its key, forcing its recreation
+5. All FilterModifier components are recreated with clean state
+6. When toggleFilter is called, it checks if less than 100ms passed since last toggle
+7. If so, it ignores the toggle (prevents double-toggling issue)
+8. Checkboxes work correctly for every new item evaluation
+
+### Removed Form Element (2026-02-25)
+
+Completely removed `<form>` element from FiltersBlock to eliminate form submission issues:
+
+**FiltersBlock.vue:**
+- Removed `<form @submit.prevent>` wrapper around FilterModifier components
+- Removed `<input type="submit" class="hidden" />`
+- Removed `@submit` from emits
+- Removed `handleStatsSubmit` function
+
+**FilterModifier.vue:**
+- Removed `@submit` from emits
+- Removed `ctx.emit('submit')` from toggleFilter function
+
+**CheckedItem.vue:**
+- Removed `@submit="doSearch = true"` from FiltersBlock
+
+All FilterModifier components are now standalone without form context, eliminating any interference from form submission behavior.
+
+**Debug logs still enabled for testing** - Remove console.log statements after verification:
+- CheckedItem.vue: lines in watch for props.item
+- FilterModifier.vue: onMounted and toggleFilter logs (now includes timeSinceLastToggle, target tags, timestamps)
+
+**To verify the fix:**
+1. Open console in devtools
+2. Evaluate first item, toggle some checkboxes
+3. Evaluate second item
+4. Check console for "Ignoring toggle - too soon after last toggle" (if double-click happens)
+5. Verify checkboxes toggle correctly without flipping back
 
 ### Navigation Issues - Resolved
 
@@ -125,6 +203,7 @@ Gamepad Input → GamepadManager → OverlayWindow → PriceCheckWindow → Chec
 - ✅ Filtered out elements with data-skip-focus in getFocusableElements()
 - ✅ Disabled auto-hide of search button when filters change - button stays visible for navigation
 - ✅ Simplified filter toggle logic - removed gamepadActivation checks, now uses direct Vue reactivity
+- ✅ Fixed: Checkboxes stop working on second item evaluation - added `itemKey` to force CheckedItem re-creation on every new item (2026-02-25)
 
 **Tested Functionality:**
 - Navigate through trade listings (geometric positioning)

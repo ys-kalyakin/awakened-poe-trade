@@ -7,11 +7,9 @@
     </div>
     <div class="flex flex-col min-w-0 flex-1">
        <div class="pb-px flex items-baseline justify-between">
-        <button class="flex items-baseline text-left min-w-0" ref="filterButtonEl" @click="toggleFilter" type="button">
-          <i class="w-5" :class="{
-            'far fa-square text-gray-500': isDisabled,
-            'fas fa-check-square': !isDisabled
-          }"></i>
+        <button class="flex items-baseline text-left min-w-0" ref="filterButtonEl" @click="toggleFilter($event)" type="button">
+          <i v-if="filter.disabled" :key="'disabled-' + forceUpdate" class="w-5 far fa-square text-gray-500"></i>
+          <i v-else :key="'enabled-' + forceUpdate" class="w-5 fas fa-check-square"></i>
           <div class="search-text flex-1 mr-1 relative flex min-w-0" style="line-height: 1rem;">
             <span class="truncate"><item-modifier-text :text="text" :roll="roll?.value" /></span>
             <span class="search-text-full whitespace-pre-wrap"><item-modifier-text :text="text" :roll="roll?.value" /></span>
@@ -67,7 +65,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, computed, ref, nextTick } from 'vue'
+import { defineComponent, PropType, computed, ref, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiPopover from '@/web/ui/Popover.vue'
 import StatRollSlider from '../../ui/StatRollSlider.vue'
@@ -82,7 +80,7 @@ import SourceInfo from './SourceInfo.vue'
 
 export default defineComponent({
   components: { ItemModifierText, ModifierAnointment, FilterModifierItemHasEmpty, FilterModifierTiers, SourceInfo, StatRollSlider, UiPopover },
-  emits: ['submit', 'filter-toggled'],
+  emits: ['filter-toggled'],
   props: {
     filter: {
       type: Object as PropType<StatFilter>,
@@ -98,6 +96,16 @@ export default defineComponent({
     }
   },
   setup (props, ctx) {
+    const lastToggleTime = ref(0)
+    const TOGGLE_DEBOUNCE = 100 // ms
+
+    onMounted(() => {
+      console.log('[FilterModifier] Component mounted:', {
+        text: props.filter.text,
+        disabled: props.filter.disabled
+      })
+    })
+
     const showTag = computed(() =>
       props.filter.tag !== FilterTag.Property &&
       props.filter.tradeId[0] !== 'item.has_empty_modifier' &&
@@ -125,6 +133,9 @@ export default defineComponent({
     const inputMinEl = ref<HTMLInputElement | null>(null)
     const inputMaxEl = ref<HTMLInputElement | null>(null)
     const filterButtonEl = ref<HTMLElement | null>(null)
+
+    // Force re-render when filter changes
+    const forceUpdate = ref(0)
 
     const sliderValue = computed<Array<number | '' | undefined>>({
       get () {
@@ -165,9 +176,36 @@ export default defineComponent({
     }
 
     function toggleFilter (e: MouseEvent) {
-      // Always toggle the filter for both mouse and gamepad
+      const now = Date.now()
+      console.log('[FilterModifier] toggleFilter called:', {
+        text: props.filter.text,
+        disabled: props.filter.disabled,
+        forceUpdate: forceUpdate.value,
+        target: (e.target as HTMLElement).tagName,
+        currentTarget: (e.currentTarget as HTMLElement).tagName,
+        timestamp: now,
+        timeSinceLastToggle: now - lastToggleTime.value
+      })
+
+      // Prevent double toggles in quick succession
+      if (now - lastToggleTime.value < TOGGLE_DEBOUNCE) {
+        console.log('[FilterModifier] Ignoring toggle - too soon after last toggle')
+        e.preventDefault()
+        e.stopPropagation()
+        return
+      }
+
+      // Toggle the filter
       props.filter.disabled = !props.filter.disabled
-      ctx.emit('filter-toggled')
+      // Force Vue reactivity
+      forceUpdate.value++
+      lastToggleTime.value = now
+
+      console.log('[FilterModifier] After toggle:', {
+        disabled: props.filter.disabled,
+        forceUpdate: forceUpdate.value,
+        timestamp: now
+      })
     }
 
     const { t } = useI18n()
@@ -193,7 +231,11 @@ export default defineComponent({
       changeStep: computed(() => props.filter.roll!.dp ? 0.01 : 1),
       showInputs: computed(() => props.filter.roll != null && !props.filter.oils),
       fontSize: computed(() => AppConfig().fontSize),
-      isDisabled: computed(() => props.filter.disabled),
+      isDisabled: computed(() => {
+        // Use forceUpdate to trigger re-render, but track actual state
+        forceUpdate.value
+        return props.filter.disabled
+      }),
       text: computed(() => {
         if (!(INTERNAL_TRADE_IDS as readonly string[]).includes(props.filter.tradeId[0])) {
           return props.filter.text
@@ -218,7 +260,8 @@ export default defineComponent({
          )),
       inputFocus,
       filterButtonEl,
-      toggleFilter
+      toggleFilter,
+      forceUpdate
     }
   }
 })

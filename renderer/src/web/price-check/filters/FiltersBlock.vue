@@ -64,12 +64,10 @@
           </div>
           <div class="flex-1 border-b border-gray-700" />
         </div>
-      <form @submit.prevent="handleStatsSubmit">
-        <filter-modifier v-for="filter of filteredStats" :key="filter.tag + '/' + filter.text"
+        <filter-modifier v-for="(filter, idx) of filteredStats" :key="idx"
           :filter="filter"
           :item="item"
           :show-sources="showFilterSources"
-          @submit="handleStatsSubmit"
           @filter-toggled="$emit('filter-toggled')" />
         <div v-if="!filteredStats.length && !showUnknownMods"
           class="border-b border-gray-700 py-2">{{ t('filters.empty') }}</div>
@@ -77,8 +75,6 @@
           <unknown-modifier v-for="stat of item.unknownModifiers" :key="stat.type + '/' + stat.text"
             :stat="stat" />
         </template>
-        <input type="submit" class="hidden" />
-      </form>
        <div class="flex gap-x-4">
         <button tabindex="0" @click="statsVisibility.disabled = !statsVisibility.disabled" class="bg-gray-700 px-2 py-1 text-gray-400 leading-none rounded-b w-40"
           data-skip-focus="true"
@@ -108,7 +104,7 @@ import { inject } from 'vue'
 
 export default defineComponent({
   name: 'FiltersBlock',
-  emits: ['submit', 'preset', 'filter-toggled'],
+  emits: ['preset', 'filter-toggled'],
   components: {
     FilterModifier,
     FilterBtnNumeric,
@@ -217,16 +213,13 @@ export default defineComponent({
          }
        }),
        showUnknownMods,
-       hasStats: computed(() =>
-         props.stats.length ||
-         (showUnknownMods.value && props.item.rarity === ItemRarity.Unique) ||
-         props.presets.length > 1),
-        handleStatsSubmit () {
-          ctx.emit('submit')
-        },
-        selectPreset (id: string) {
-          ctx.emit('preset', id)
-        }
+        hasStats: computed(() =>
+          props.stats.length ||
+          (showUnknownMods.value && props.item.rarity === ItemRarity.Unique) ||
+          props.presets.length > 1),
+         selectPreset (id: string) {
+           ctx.emit('preset', id)
+         }
     }
   }
 })

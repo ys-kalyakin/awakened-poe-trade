@@ -10,13 +10,13 @@
       :item="item"
       :filters="itemFilters" />
     <filters-block
+      :key="`filters-${item.info.namespace}-${item.info.refName}-${itemKey}`"
       ref="filtersComponent"
       :filters="itemFilters"
       :stats="itemStats"
       :item="item"
       :presets="presets"
       @preset="selectPreset"
-      @submit="doSearch = true"
       @filter-toggled="handleFilterToggledEvent" />
     <trade-listing
       v-if="tradeAPI === 'trade' && doSearch"
@@ -98,9 +98,13 @@ export default defineComponent({
     advancedCheck: {
       type: Boolean,
       required: true
+    },
+    itemKey: {
+      type: Number,
+      required: true
     }
   },
-  setup (props) {
+  setup (props, ctx) {
     const widget = computed(() => AppConfig<PriceCheckWidget>('price-check')!)
     const leagues = useLeagues()
 
@@ -167,19 +171,19 @@ export default defineComponent({
             focusManager.scrollTo('down')
             break
           case 'prev-tab':
-            if (props.presets.length > 1) {
-              const activePresetIndex = props.presets.findIndex(p => p.active)
+            if (presets.value.presets.length > 1) {
+              const activePresetIndex = presets.value.presets.findIndex(p => p.id === presets.value.active)
               const currentPresetIndex = activePresetIndex >= 0 ? activePresetIndex : 0
-              const newIndex = (currentPresetIndex - 1 + props.presets.length) % props.presets.length
-              ctx.emit('preset', props.presets[newIndex].id)
+              const newIndex = (currentPresetIndex - 1 + presets.value.presets.length) % presets.value.presets.length
+              ctx.emit('preset', presets.value.presets[newIndex].id)
             }
             break
           case 'next-tab':
-            if (props.presets.length > 1) {
-              const activePresetIndex = props.presets.findIndex(p => p.active)
+            if (presets.value.presets.length > 1) {
+              const activePresetIndex = presets.value.presets.findIndex(p => p.id === presets.value.active)
               const currentPresetIndex = activePresetIndex >= 0 ? activePresetIndex : 0
-              const newIndex = (currentPresetIndex + 1) % props.presets.length
-              ctx.emit('preset', props.presets[newIndex].id)
+              const newIndex = (currentPresetIndex + 1) % presets.value.presets.length
+              ctx.emit('preset', presets.value.presets[newIndex].id)
             }
             break
         }
@@ -187,6 +191,8 @@ export default defineComponent({
     }
 
     watch(() => props.item, (item, prevItem) => {
+      console.log('[CheckedItem] Item changed, itemKey:', props.itemKey)
+
       const prevCurrency = (presets.value != null) ? itemFilters.value.trade.currency : undefined
 
       presets.value = createPresets(item, {
@@ -200,6 +206,8 @@ export default defineComponent({
           item.info.refName === prevItem.info.refName
         ) ? prevCurrency : undefined
       })
+
+      console.log('[CheckedItem] Presets created:', presets.value)
 
       if ((!props.advancedCheck && !widget.value.smartInitialSearch) ||
           (props.advancedCheck && !widget.value.lockedInitialSearch)) {
@@ -274,7 +282,7 @@ export default defineComponent({
     }, { deep: true })
 
     // Watch for changes in filters (including stats)
-    watch(() => props.item && itemFilters.value ? JSON.stringify(itemFilters.value.stats) : null, (newStats, oldStats) => {
+    watch(() => props.item && itemStats.value ? JSON.stringify(itemStats.value) : null, (newStats, oldStats) => {
       if (props.item && newStats !== oldStats) {
         doSearch.value = false
       }

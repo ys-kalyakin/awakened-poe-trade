@@ -41,8 +41,8 @@
         <template v-else-if="item?.isOk()">
           <unidentified-resolver :item="item.value" @identify="handleIdentification($event)" />
           <checked-item v-if="isLeagueSelected"
-            :key="`${item.value.info.namespace}-${item.value.info.refName}-${item.value.rarity}`"
-            :item="item.value" :advanced-check="advancedCheck" />
+            :key="`checked-${itemKey}`"
+            :item="item.value" :advanced-check="advancedCheck" :item-key="itemKey" />
         </template>
         <div v-if="isBrowserShown" class="bg-gray-900 px-6 py-2 truncate">
           <i18n-t keypath="app.toggle_browser_hint" tag="div">
@@ -156,6 +156,7 @@ export default defineComponent({
     const item = shallowRef<null | Result<ParsedItem, ParseError>>(null)
     const advancedCheck = shallowRef(false)
     const checkPosition = shallowRef({ x: 1, y: 1 })
+    const itemKey = shallowRef(0)
 
     MainProcess.onEvent('MAIN->CLIENT::item-text', (e) => {
       if (e.target !== 'price-check') return
@@ -200,6 +201,8 @@ export default defineComponent({
           rawText: e.clipboard
         }))
 
+      itemKey.value++
+
       if (item.value.isOk()) {
         queuePricesFetch()
       }
@@ -215,6 +218,7 @@ export default defineComponent({
 
     function handleIdentification (identified: ParsedItem) {
       item.value = ok(identified)
+      itemKey.value++
     }
 
     MainProcess.onEvent('MAIN->OVERLAY::hide-exclusive-widget', () => {
@@ -346,6 +350,7 @@ export default defineComponent({
       showCheckPos,
       checkPosition,
       item,
+      itemKey,
       advancedCheck,
       handleIdentification,
       overlayKey,
