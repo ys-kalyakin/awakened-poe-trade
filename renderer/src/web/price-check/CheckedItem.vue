@@ -16,7 +16,8 @@
       :item="item"
       :presets="presets"
       @preset="selectPreset"
-      @submit="doSearch = true" />
+      @submit="doSearch = true"
+      @filter-toggled="handleFilterToggledEvent" />
     <trade-listing
       v-if="tradeAPI === 'trade' && doSearch"
       ref="tradeService"
@@ -28,12 +29,17 @@
       ref="tradeService"
       :filters="itemFilters"
       :item="item" />
-    <div v-if="!doSearch" class="flex justify-between items-center">
+    <div v-if="!doSearch && shouldShowSearchButton" class="flex justify-between items-center">
       <div class="flex w-40" @mouseenter="handleSearchMouseenter">
          <button id="price-check-search-btn" class="btn" @click="doSearch = true" style="min-width: 5rem;" tabindex="0">{{ t('Search') }}</button>
       </div>
       <trade-links v-if="tradeAPI === 'trade'"
         :get-link="makeTradeLink" />
+    </div>
+    <div v-else-if="doSearch" class="flex justify-between items-center">
+      <div class="flex w-40">
+         <div class="text-gray-500 px-2 py-1">Loading...</div>
+      </div>
     </div>
     <stack-value :filters="itemFilters" :item="item"/>
     <div v-if="showSupportLinks" class="mt-auto border border-dashed p-2">
@@ -99,10 +105,17 @@ export default defineComponent({
     const leagues = useLeagues()
 
     const presets = ref<{ active: string, presets: FilterPreset[] }>(null!)
-    const itemFilters = computed(() => presets.value.presets.find(preset => preset.id === presets.value.active)!.filters)
+    const itemFilters = computed(() => {
+      const result = presets.value.presets.find(preset => preset.id === presets.value.active)!.filters
+      return result
+    })
     const itemStats = computed(() => presets.value.presets.find(preset => preset.id === presets.value.active)!.stats)
     const doSearch = ref(false)
     const tradeAPI = ref<'trade' | 'bulk'>('bulk')
+
+    const shouldShowSearchButton = computed(() => {
+      return !doSearch.value
+    })
 
     // TradeListing.vue OR TradeBulk.vue
     const tradeService = ref<{ execSearch(): void } | null>(null)
@@ -112,11 +125,8 @@ export default defineComponent({
 
     if (focusManager) {
       onMounted(() => {
-        console.log('[CheckedItem] onMounted called')
-
         const findContainer = () => {
           const el = document.querySelector('.p-4.layout-column.min-h-0') as HTMLElement
-          console.log('[CheckedItem] Found container:', el)
           return el
         }
 
@@ -124,29 +134,13 @@ export default defineComponent({
           nextTick(() => {
             const container = findContainer()
             if (container && container instanceof HTMLElement) {
-              console.log('[CheckedItem] Initializing FocusManager:', {
-                id: container.id,
-                class: container.className,
-                children: container.children.length,
-                childrenArray: Array.from(container.children).map((child, i) => ({
-                  tag: child.tagName,
-                  class: child.className,
-                  id: child.id,
-                  childCount: child.children.length,
-                  hasButtons: child.querySelectorAll('button').length > 0,
-                  allText: child.textContent?.substring(0, 100)
-                }))
-              })
-
               focusManager.setupFocus(container)
               setTimeout(() => {
                 focusManager.refreshContext()
                 if (!doSearch.value) {
                   focusManager.focusElementBySelector('#price-check-search-btn')
                 }
-              }, 150)
-            } else {
-              console.error('[CheckedItem] Container not found!')
+              }, 50)
             }
           })
         }
@@ -162,7 +156,8 @@ export default defineComponent({
           case 'navigate-down':
           case 'navigate-left':
           case 'navigate-right':
-            focusManager.navigate(e.type.split('-')[1] as 'up' | 'down' | 'left' | 'right')
+            const direction = e.type.split('-')[1] as 'up' | 'down' | 'left' | 'right'
+            focusManager.navigate(direction)
             break
           case 'activate':
             focusManager.activateFocused()
@@ -173,13 +168,27 @@ export default defineComponent({
           case 'scroll-down':
             focusManager.scrollTo('down')
             break
+          case 'prev-tab':
+            if (props.presets.length > 1) {
+              const activePresetIndex = props.presets.findIndex(p => p.active)
+              const currentPresetIndex = activePresetIndex >= 0 ? activePresetIndex : 0
+              const newIndex = (currentPresetIndex - 1 + props.presets.length) % props.presets.length
+              ctx.emit('preset', props.presets[newIndex].id)
+            }
+            break
+          case 'next-tab':
+            if (props.presets.length > 1) {
+              const activePresetIndex = props.presets.findIndex(p => p.active)
+              const currentPresetIndex = activePresetIndex >= 0 ? activePresetIndex : 0
+              const newIndex = (currentPresetIndex + 1) % props.presets.length
+              ctx.emit('preset', props.presets[newIndex].id)
+            }
+            break
         }
       })
     }
 
     watch(() => props.item, (item, prevItem) => {
-      console.log('[CheckedItem] Item changed, prevItem:', prevItem ? prevItem.info.refName : 'null', 'newItem:', item.info.refName)
-
       const prevCurrency = (presets.value != null) ? itemFilters.value.trade.currency : undefined
 
       presets.value = createPresets(item, {
@@ -216,12 +225,11 @@ export default defineComponent({
       if (focusManager) {
         nextTick(() => {
           setTimeout(() => {
-            console.log('[CheckedItem] Refreshing context after item change')
             focusManager.refreshContext()
             if (!doSearch.value) {
               focusManager.focusElementBySelector('#price-check-search-btn')
             }
-          }, 100)
+          }, 50)
         })
       }
     }, { immediate: true })
@@ -237,7 +245,9 @@ export default defineComponent({
           tradeService.value.execSearch()
         }
         if (focusManager) {
-          focusManager.refreshContext()
+          setTimeout(() => {
+            focusManager.refreshContext()
+          }, 50)
         }
       })
     }, { deep: false, immediate: true })
@@ -246,10 +256,11 @@ export default defineComponent({
       const cItem = curr[0]; const pItem = prev[0]
       const cIntaracted = curr[1]; const pIntaracted = prev[1]
 
-      if (cItem === pItem && cIntaracted === true && pIntaracted === true) {
-        // force user to press Search button on change
-        doSearch.value = false
-      }
+      // Don't hide search button when filters change - let user search manually
+      // Only hide if search was already triggered (doSearch was true, now false)
+      // if (cItem === pItem && cIntaracted === true && pIntaracted === true) {
+      //   doSearch.value = false
+      // }
     }, { deep: true })
 
     watch(() => [props.item, JSON.stringify(itemFilters.value.trade)], (curr, prev) => {
@@ -267,6 +278,32 @@ export default defineComponent({
         })
       }
     }, { deep: false })
+
+    watch(() => [props.item, JSON.stringify(itemFilters.value)], (curr, prev) => {
+      const cItem = curr[0]; const pItem = prev[0]
+      const cFilters = curr[1]; const pFilters = prev[1]
+
+      if (cItem === pItem && cFilters !== pFilters) {
+        doSearch.value = false
+        if (focusManager) {
+          setTimeout(() => {
+            focusManager.focusElementBySelector('#price-check-search-btn')
+          }, 50)
+        }
+      }
+    }, { deep: true })
+
+    // Watch for changes in filters (including stats)
+    watch(() => props.item && itemFilters.value ? JSON.stringify(itemFilters.value.stats) : null, (newStats, oldStats) => {
+      if (props.item && newStats !== oldStats) {
+        doSearch.value = false
+        if (focusManager) {
+          setTimeout(() => {
+            focusManager.focusElementBySelector('#price-check-search-btn')
+          }, 50)
+        }
+      }
+    }, { deep: true })
 
     const showPredictedPrice = computed(() => {
       if (!widget.value.requestPricePrediction ||
@@ -301,6 +338,15 @@ export default defineComponent({
       }
     }
 
+    function handleFilterToggledEvent () {
+      doSearch.value = false
+      if (focusManager) {
+        setTimeout(() => {
+          focusManager.focusElementBySelector('#price-check-search-btn')
+        }, 50)
+      }
+    }
+
     const showSupportLinks = ref(false)
     watch(() => [props.item, doSearch.value], ([cItem, cInteracted], [pItem]) => {
       if (_showSupportLinksCounter >= 13 && (!cInteracted || tradeAPI.value === 'bulk')) {
@@ -326,7 +372,9 @@ export default defineComponent({
       filtersComponent,
       showPredictedPrice,
       show,
+      shouldShowSearchButton,
       handleSearchMouseenter,
+      handleFilterToggledEvent,
       showSupportLinks,
       presets: computed(() => presets.value.presets.map(preset =>
         ({ id: preset.id, active: (preset.id === presets.value.active) }))),

@@ -69,7 +69,8 @@
           :filter="filter"
           :item="item"
           :show-sources="showFilterSources"
-          @submit="handleStatsSubmit" />
+          @submit="handleStatsSubmit"
+          @filter-toggled="$emit('filter-toggled')" />
         <div v-if="!filteredStats.length && !showUnknownMods"
           class="border-b border-gray-700 py-2">{{ t('filters.empty') }}</div>
         <template v-if="showUnknownMods">
@@ -80,6 +81,7 @@
       </form>
        <div class="flex gap-x-4">
         <button tabindex="0" @click="statsVisibility.disabled = !statsVisibility.disabled" class="bg-gray-700 px-2 py-1 text-gray-400 leading-none rounded-b w-40"
+          data-skip-focus="true"
           >{{ t('filters.collapse') }} <i class="fas fa-chevron-up pl-1 text-xs text-gray-600"></i></button>
         <ui-toggle v-if="filteredStats.length != stats.length"
           v-model="showHidden" class="text-gray-400 pt-2" :tabindex="0">{{ t('filters.hidden_toggle') }}</ui-toggle>
@@ -106,7 +108,7 @@ import { inject } from 'vue'
 
 export default defineComponent({
   name: 'FiltersBlock',
-  emits: ['submit', 'preset'],
+  emits: ['submit', 'preset', 'filter-toggled'],
   components: {
     FilterModifier,
     FilterBtnNumeric,
@@ -132,7 +134,7 @@ export default defineComponent({
       required: true
     }
   },
-   setup (props, ctx) {
+  setup (props, ctx) {
     const statsVisibility = shallowReactive({ disabled: false })
     const showHidden = shallowRef(false)
     const filtersBlockEl = ref<HTMLElement | null>(null)
@@ -152,21 +154,7 @@ export default defineComponent({
     }
 
     if (focusManager) {
-      onMounted(() => {
-        nextTick(() => {
-          if (filtersBlockEl.value) {
-            console.log('[FiltersBlock] Container found:', {
-              id: filtersBlockEl.value.id,
-              class: filtersBlockEl.value.className,
-              children: filtersBlockEl.value.children.length
-            })
-          }
-        })
-      })
-
       MainProcess.onEvent('MAIN->CLIENT::gamepad-navigation', (e) => {
-        console.log('[FiltersBlock] Gamepad navigation:', e.type)
-
         if (!focusManager) return
 
         const activePresetIndex = props.presets.findIndex(p => p.active)
@@ -186,7 +174,7 @@ export default defineComponent({
             }
             break
           case 'activate':
-            focusManager.activateFocused()
+            // Don't call activateFocused again - it's already handled by click
             break
         }
       })
@@ -194,7 +182,6 @@ export default defineComponent({
       onUnmounted(() => {
         if (focusManager) {
           focusManager.popContext()
-          console.log('[FiltersBlock] Popped context')
         }
       })
     }

@@ -257,7 +257,7 @@ app.on("ready", async () => {
                   // Cleanup: mark price-check as not processing
                   isProcessingPriceCheck = false
                   console.log('[Gamepad] Cleanup: price-check processing finished')
-                }, 2000)
+                }, 150)
                }).catch((err) => {
                  console.log('[Gamepad] Error copying item:', err)
 

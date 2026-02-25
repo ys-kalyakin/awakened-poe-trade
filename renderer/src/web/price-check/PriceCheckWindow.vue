@@ -207,7 +207,7 @@ export default defineComponent({
         nextTick(() => {
           setTimeout(() => {
             focusManager.focusElementBySelector('#price-check-search-btn')
-          }, 100)
+          }, 50)
         })
       }
     })

@@ -72,17 +72,13 @@ export class FocusManager {
 
     const context = this.getCurrentContext()
     if (!context) {
-      console.log('[FocusManager] No context available')
       return
     }
 
     if (context.elements.length === 0) {
-      console.log('[FocusManager] No elements in context, refreshing...')
       this.refreshContext()
       return
     }
-
-    console.log('[FocusManager] Navigate:', direction, 'Current index:', context.currentIndex, 'Total elements:', context.elements.length)
 
     const currentElement = context.elements[context.currentIndex]
     const nextElement = this.findBestNextElement(currentElement, context.elements, direction)
@@ -92,8 +88,6 @@ export class FocusManager {
       if (newIndex !== -1 && newIndex !== context.currentIndex) {
         this.setFocus(newIndex, context)
       }
-    } else {
-      console.log('[FocusManager] No valid element found for direction:', direction)
     }
   }
 
@@ -168,19 +162,90 @@ export class FocusManager {
     }
 
     if (candidates.length === 0) {
-      console.log('[FocusManager] No candidates found for direction:', direction)
-      return null
+      return this.findCircularNextElement(currentElement, elements, direction)
     }
 
     candidates.sort((a, b) => a.primaryScore - b.primaryScore || a.secondaryScore - b.secondaryScore)
-    console.log('[FocusManager] Best candidate:', candidates[0].element.tagName, 'primary:', candidates[0].primaryScore, 'secondary:', candidates[0].secondaryScore)
     return candidates[0].element
+  }
+
+  private findCircularNextElement (
+    currentElement: HTMLElement,
+    elements: HTMLElement[],
+    direction: Direction
+  ): HTMLElement | null {
+    const currentIndex = elements.indexOf(currentElement)
+
+    let visibleElements: HTMLElement[] = []
+    for (const element of elements) {
+      if (element === currentElement) continue
+
+      const rect = element.getBoundingClientRect()
+      const computedStyle = window.getComputedStyle(element)
+      const isVisible = (
+        computedStyle.display !== 'none' &&
+        computedStyle.visibility !== 'hidden' &&
+        computedStyle.opacity !== '0' &&
+        rect.width > 0 &&
+        rect.height > 0
+      )
+
+      if (isVisible) {
+        visibleElements.push(element)
+      }
+    }
+
+    if (visibleElements.length === 0) {
+      return null
+    }
+
+    if (visibleElements.length === 1) {
+      return visibleElements[0]
+    }
+
+    let nextIndex: number
+
+    switch (direction) {
+      case 'up':
+      case 'down':
+      case 'left':
+      case 'right':
+        nextIndex = this.findNextInOrder(currentIndex, visibleElements, direction)
+        break
+      default:
+        return visibleElements[0]
+    }
+
+    if (nextIndex >= 0 && nextIndex < visibleElements.length) {
+      return visibleElements[nextIndex]
+    }
+
+    return null
+  }
+
+  private findNextInOrder (
+    currentIndex: number,
+    elements: HTMLElement[],
+    direction: Direction
+  ): number {
+    const lastIndex = elements.length - 1
+
+    switch (direction) {
+      case 'up':
+        return currentIndex === 0 ? lastIndex : currentIndex - 1
+      case 'down':
+        return currentIndex === lastIndex ? 0 : currentIndex + 1
+      case 'left':
+        return currentIndex === 0 ? lastIndex : currentIndex - 1
+      case 'right':
+        return currentIndex === lastIndex ? 0 : currentIndex + 1
+    }
+
+    return 0
   }
   private setFocus (index: number, context: FocusContext) {
     context.currentIndex = index
     this.focusedElement.value = context.elements[index]
-
-    console.log('[FocusManager] Focus set to element at index:', index)
 
     this.highlightElement(context.elements[index])
 
@@ -202,7 +267,32 @@ export class FocusManager {
     const element = this.focusedElement.value
     if (!element) return
 
-    console.log('[FocusManager] Activating focused element:', element.tagName)
+    if (element instanceof HTMLInputElement && element.type === 'checkbox') {
+      element.checked = !element.checked
+      element.dispatchEvent(new Event('change', { bubbles: true }))
+      element.dispatchEvent(new Event('input', { bubbles: true }))
+      element.focus()
+      return
+    }
+
+    if (element instanceof HTMLInputElement && element.type === 'radio') {
+      element.checked = true
+      element.dispatchEvent(new Event('change', { bubbles: true }))
+      element.dispatchEvent(new Event('input', { bubbles: true }))
+      element.focus()
+      return
+    }
+
+    if (element.tagName === 'BUTTON') {
+      const gamepadActivation = this.focusedElement.value?.classList.contains('gamepad-focused')
+      if (gamepadActivation) {
+        element.setAttribute('data-gamepad-activation', 'true')
+      }
+
+      element.focus()
+      element.click()
+      return
+    }
 
     element.click()
     element.focus()
@@ -211,8 +301,6 @@ export class FocusManager {
   handleEscape () {
     const context = this.getCurrentContext()
     if (!context) return
-
-    console.log('[FocusManager] Escape pressed, closing current context')
 
     const element = context.elements[context.currentIndex]
     if (element) {
@@ -226,8 +314,6 @@ export class FocusManager {
 
     const scrollContainer = this.findScrollContainer(context.container)
     if (!scrollContainer) return
-
-    console.log('[FocusManager] Scroll:', direction, 'Amount:', amount)
 
     if (direction === 'up') {
       scrollContainer.scrollBy({ top: -amount, behavior: 'smooth' })
@@ -254,8 +340,6 @@ export class FocusManager {
   private updateContext (container: HTMLElement) {
     const focusableElements = this.getFocusableElements(container)
 
-    console.log('[FocusManager] Context updated:', focusableElements.length, 'focusable elements')
-
     this.contextStack.push({
       container,
       currentIndex: 0,
@@ -270,8 +354,6 @@ export class FocusManager {
   pushContext (container: HTMLElement) {
     const focusableElements = this.getFocusableElements(container)
 
-    console.log('[FocusManager] Push context:', focusableElements.length, 'elements')
-
     this.contextStack.push({
       container,
       currentIndex: 0,
@@ -285,8 +367,6 @@ export class FocusManager {
 
   popContext () {
     if (this.contextStack.length > 1) {
-      console.log('[FocusManager] Pop context')
-
       this.contextStack.pop()
 
       const context = this.getCurrentContext()
@@ -300,8 +380,6 @@ export class FocusManager {
     const context = this.getCurrentContext()
     if (!context || !context.container) return
 
-    console.log('[FocusManager] Reset context')
-
     this.contextStack.length = 0
     this.updateContext(context.container)
   }
@@ -310,23 +388,16 @@ export class FocusManager {
     const context = this.getCurrentContext()
     if (!context || !context.container) return
 
-    console.log('[FocusManager] Refresh context')
-
     const oldElements = context.elements
     const oldFocusedElement = context.elements[context.currentIndex]
 
     const newElements = this.getFocusableElements(context.container)
-
-    console.log('[FocusManager] Old elements:', oldElements.length, 'New elements:', newElements.length)
 
     context.elements = newElements
 
     let newIndex = 0
     if (oldFocusedElement && newElements.includes(oldFocusedElement)) {
       newIndex = newElements.indexOf(oldFocusedElement)
-      console.log('[FocusManager] Preserved focus on element at index:', newIndex)
-    } else {
-      console.log('[FocusManager] Old focused element not found, starting from index 0')
     }
 
     context.currentIndex = newIndex
@@ -361,13 +432,12 @@ export class FocusManager {
 
     const elements = Array.from(container.querySelectorAll<HTMLElement>(selector))
 
-    console.log('[FocusManager] Found focusable elements:', elements.length)
-    elements.forEach((el, idx) => {
-      const rect = el.getBoundingClientRect()
-      console.log(`[${idx}] ${el.tagName}${el.className ? '.' + el.className.split(' ').join('.') : ''} - visible: ${rect.width > 0 && rect.height > 0}, x:${rect.x}, y:${rect.y}, w:${rect.width}, h:${rect.height}`)
+    // Filter out elements with data-skip-focus attribute
+    const filteredElements = elements.filter(el => {
+      return el.getAttribute('data-skip-focus') !== 'true'
     })
 
-    return elements
+    return filteredElements
   }
 
   getFocusedElement (): ComputedRef<HTMLElement | null> {
@@ -380,7 +450,6 @@ export class FocusManager {
 
   setNavigationEnabled (enabled: boolean) {
     this.navigationEnabled.value = enabled
-    console.log('[FocusManager] Navigation enabled:', enabled)
 
     if (!enabled) {
       document.querySelectorAll('.gamepad-focused').forEach(el => {

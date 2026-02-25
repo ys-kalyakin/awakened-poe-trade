@@ -6,8 +6,8 @@
       </div>
     </div>
     <div class="flex flex-col min-w-0 flex-1">
-      <div class="pb-px flex items-baseline justify-between">
-        <button class="flex items-baseline text-left min-w-0" @click="toggleFilter" type="button">
+       <div class="pb-px flex items-baseline justify-between">
+        <button class="flex items-baseline text-left min-w-0" ref="filterButtonEl" @click="toggleFilter" type="button">
           <i class="w-5" :class="{
             'far fa-square text-gray-500': isDisabled,
             'fas fa-check-square': !isDisabled
@@ -21,10 +21,10 @@
           <div v-if="showQ20Notice" :class="$style['qualityLabel']">{{ t('item.prop_quality', [calcQuality]) }}</div>
           <div class="flex gap-x-px">
             <input :class="$style['rollInput']" :placeholder="t('min')" :min="roll?.bounds?.min" :max="roll?.bounds?.max" :step="changeStep" type="number"
-              v-if="showInputs" ref="inputMinEl"
+              v-if="showInputs" ref="inputMinEl" tabindex="-1"
               v-model.number="inputMin" @focus="inputFocus($event, 'min')" @mousewheel.stop>
             <input :class="$style['rollInput']" :placeholder="t('max')" :min="roll?.bounds?.min" :max="roll?.bounds?.max" :step="changeStep" type="number"
-              v-if="showInputs" ref="inputMaxEl"
+              v-if="showInputs" ref="inputMaxEl" tabindex="-1"
               v-model.number="inputMax" @focus="inputFocus($event, 'max')" @mousewheel.stop>
           </div>
         </div>
@@ -82,7 +82,7 @@ import SourceInfo from './SourceInfo.vue'
 
 export default defineComponent({
   components: { ItemModifierText, ModifierAnointment, FilterModifierItemHasEmpty, FilterModifierTiers, SourceInfo, StatRollSlider, UiPopover },
-  emits: ['submit'],
+  emits: ['submit', 'filter-toggled'],
   props: {
     filter: {
       type: Object as PropType<StatFilter>,
@@ -124,6 +124,7 @@ export default defineComponent({
 
     const inputMinEl = ref<HTMLInputElement | null>(null)
     const inputMaxEl = ref<HTMLInputElement | null>(null)
+    const filterButtonEl = ref<HTMLElement | null>(null)
 
     const sliderValue = computed<Array<number | '' | undefined>>({
       get () {
@@ -164,10 +165,16 @@ export default defineComponent({
     }
 
     function toggleFilter (e: MouseEvent) {
-      if (e.detail === 0) {
+      const isGamepad = (e as any).gamepadActivation === true || (e.currentTarget as HTMLElement).getAttribute('data-gamepad-activation') === 'true'
+
+      if (isGamepad) {
+        props.filter.disabled = !props.filter.disabled
+        ctx.emit('filter-toggled')
+      } else if (e.detail === 0) {
         ctx.emit('submit')
       } else {
         props.filter.disabled = !props.filter.disabled
+        ctx.emit('filter-toggled')
       }
     }
 
@@ -216,8 +223,9 @@ export default defineComponent({
             props.filter.sources[0].modifier.info.tier != null ||
             props.filter.sources[0].modifier.info.rank != null
           )
-        )),
+         )),
       inputFocus,
+      filterButtonEl,
       toggleFilter
     }
   }

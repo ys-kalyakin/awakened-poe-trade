@@ -38,14 +38,16 @@ export const GamepadButtonNames: Record<string, string> = {
   RT: 'RT (R2)',
   BACK: 'Back',
   START: 'Start',
-  LS: 'LS (L3)',
-  RS: 'RS (R3)',
+  LS: 'LS (Left Stick)',
+  RS: 'RS (Right Stick)',
   L3: 'L3 (Left Stick)',
   R3: 'R3 (Right Stick)',
   DPAD_DOWN: 'D-Pad Down',
+  DPAD_UP: 'D-Pad Up',
   DPAD_LEFT: 'D-Pad Left',
   DPAD_RIGHT: 'D-Pad Right',
   DOWN: 'D-Pad Down',
+  UP: 'D-Pad Up',
   LEFT: 'D-Pad Left',
   RIGHT: 'D-Pad Right'
 }
@@ -63,7 +65,12 @@ export const GamepadButtons = [
   { id: 'BACK', name: 'Back' },
   { id: 'L3', name: 'L3 (Left Stick)' },
   { id: 'R3', name: 'R3 (Right Stick)' },
+  { id: 'DPAD_DOWN', name: 'D-Pad Down' },
+  { id: 'DPAD_UP', name: 'D-Pad Up' },
+  { id: 'DPAD_LEFT', name: 'D-Pad Left' },
+  { id: 'DPAD_RIGHT', name: 'D-Pad Right' },
   { id: 'DOWN', name: 'D-Pad Down' },
+  { id: 'UP', name: 'D-Pad Up' },
   { id: 'LEFT', name: 'D-Pad Left' },
   { id: 'RIGHT', name: 'D-Pad Right' }
 ]
@@ -75,10 +82,10 @@ const DEFAULT_CONFIG: GamepadConfig = {
     { button: 'L3+R3', action: { type: 'price-check', focusOverlay: true } },
     { button: 'B', action: { type: 'close-price-check' } },
     // D-Pad Navigation
-    { button: 'UP', action: { type: 'navigate-up' } },
-    { button: 'DOWN', action: { type: 'navigate-down' } },
-    { button: 'LEFT', action: { type: 'navigate-left' } },
-    { button: 'RIGHT', action: { type: 'navigate-right' } },
+    { button: 'DPAD_UP', action: { type: 'navigate-up' } },
+    { button: 'DPAD_DOWN', action: { type: 'navigate-down' } },
+    { button: 'DPAD_LEFT', action: { type: 'navigate-left' } },
+    { button: 'DPAD_RIGHT', action: { type: 'navigate-right' } },
     // Action Buttons
     { button: 'A', action: { type: 'activate' } },
     { button: 'B', action: { type: 'cancel' } },
@@ -318,10 +325,10 @@ export class GamepadManager {
       9: 'START',
       10: 'L3',
       11: 'R3',
-      12: 'DOWN',
-      13: 'DOWN',
-      14: 'LEFT',
-      15: 'RIGHT'
+      12: 'DPAD_DOWN',
+      13: 'DPAD_RIGHT',
+      14: 'DPAD_LEFT',
+      15: 'DPAD_UP'
     }
     return names[index] || `BTN${index}`
   }
@@ -345,10 +352,11 @@ export class GamepadManager {
       R3: 11,
       DPAD_DOWN: 12,
       DPAD_LEFT: 14,
-      DPAD_RIGHT: 15,
+      DPAD_RIGHT: 13,
+      DPAD_UP: 15,
       DOWN: 12,
       LEFT: 14,
-      RIGHT: 15
+      RIGHT: 13
     }
     return buttonMap[normalized] ?? null
   }

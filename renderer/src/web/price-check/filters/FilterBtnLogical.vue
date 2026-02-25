@@ -27,12 +27,31 @@ const props = defineProps({
 
 const { t } = useI18n()
 
-function toggle () {
+function toggle (e: MouseEvent) {
   const { filter, readonly } = props
+  console.log('[FilterBtnLogical] toggle called:', {
+    gamepadActivation: (e as any).gamepadActivation,
+    readonly,
+    currentDisabled: filter.disabled
+  })
+
+  // Check if this is a gamepad activation (marked by FocusManager)
+  const isGamepad = (e as any).gamepadActivation === true
+
   if (!readonly) {
-    filter.disabled = !filter.disabled
+    if (!isGamepad) {
+      console.log('[FilterBtnLogical] Not gamepad, emitting submit')
+      filter.disabled = !filter.disabled
+      emit('submit')
+    } else {
+      console.log('[FilterBtnLogical] Gamepad activation - toggling filter')
+      filter.disabled = !filter.disabled
+      console.log('[FilterBtnLogical] Filter toggled, new disabled:', filter.disabled)
+  }
   }
 }
+
+const emit = defineEmits(['submit'])
 </script>
 
 <style lang="postcss" module>
