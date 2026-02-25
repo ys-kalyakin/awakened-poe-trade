@@ -17,6 +17,34 @@
 
 See [DEVELOPING.md](./DEVELOPING.md)
 
+### Gamepad Support
+
+Awakened PoE Trade supports gamepad navigation and item checking with Xbox/PlayStation controllers.
+
+**Setup:**
+1. Connect your gamepad via USB or Bluetooth
+2. Open Awakened PoE Trade overlay (default: `Shift + Space`)
+
+**Default Controls:**
+
+| Button Combination | Action |
+|-------------------|--------|
+| **L3 + R3** | Smart check: opens **map-check** for maps, **price-check** for other items |
+| **LT + RT** | Copy item to item-check widget |
+| **D-Pad** | Navigate through filters and buttons |
+| **A** | Activate focused element (toggle filter, click button) |
+| **B** | Close widget / Cancel |
+| **X** | Secondary action |
+| **Y** | Tertiary action |
+| **LB / RB** | Switch between tabs |
+| **LT / RT** | Scroll up/down |
+
+**Smart L3+R3 Check:**
+- **Maps** (Map, Heist Contract, Heist Blueprint, Invitation, Expedition Logbook) → opens **Map Check**
+- **All other items** → opens **Price Check**
+
+**Note:** Gamepad support works only when the overlay is active. Make sure your controller is recognized by your system before using.
+
 ### Acknowledgments
 
 - [libuiohook](https://github.com/kwhat/libuiohook)
