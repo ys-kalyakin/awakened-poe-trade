@@ -135,12 +135,10 @@ export default defineComponent({
             const container = findContainer()
             if (container && container instanceof HTMLElement) {
               focusManager.setupFocus(container)
+              // Refresh context after DOM updates
               setTimeout(() => {
                 focusManager.refreshContext()
-                if (!doSearch.value) {
-                  focusManager.focusElementBySelector('#price-check-search-btn')
-                }
-              }, 50)
+              }, 200)
             }
           })
         }
@@ -224,12 +222,9 @@ export default defineComponent({
 
       if (focusManager) {
         nextTick(() => {
-          setTimeout(() => {
-            focusManager.refreshContext()
-            if (!doSearch.value) {
-              focusManager.focusElementBySelector('#price-check-search-btn')
-            }
-          }, 50)
+          if (!doSearch.value) {
+            focusManager.focusElementBySelector('#price-check-search-btn')
+          }
         })
       }
     }, { immediate: true })
@@ -243,11 +238,6 @@ export default defineComponent({
       nextTick(() => {
         if (tradeService.value) {
           tradeService.value.execSearch()
-        }
-        if (focusManager) {
-          setTimeout(() => {
-            focusManager.refreshContext()
-          }, 50)
         }
       })
     }, { deep: false, immediate: true })
@@ -270,11 +260,6 @@ export default defineComponent({
       if (cItem === pItem && cTrade !== pTrade) {
         nextTick(() => {
           doSearch.value = true
-          if (focusManager) {
-            setTimeout(() => {
-              focusManager.refreshContext()
-            }, 50)
-          }
         })
       }
     }, { deep: false })
@@ -285,12 +270,6 @@ export default defineComponent({
 
       if (cItem === pItem && cFilters !== pFilters) {
         doSearch.value = false
-        if (focusManager) {
-          setTimeout(() => {
-            focusManager.refreshContext()
-            focusManager.focusElementBySelector('#price-check-search-btn')
-          }, 100)
-        }
       }
     }, { deep: true })
 
@@ -298,12 +277,6 @@ export default defineComponent({
     watch(() => props.item && itemFilters.value ? JSON.stringify(itemFilters.value.stats) : null, (newStats, oldStats) => {
       if (props.item && newStats !== oldStats) {
         doSearch.value = false
-        if (focusManager) {
-          setTimeout(() => {
-            focusManager.refreshContext()
-            focusManager.focusElementBySelector('#price-check-search-btn')
-          }, 100)
-        }
       }
     }, { deep: true })
 
@@ -345,8 +318,7 @@ export default defineComponent({
       if (focusManager) {
         setTimeout(() => {
           focusManager.refreshContext()
-          focusManager.focusElementBySelector('#price-check-search-btn')
-        }, 100)
+        }, 200)
       }
     }
 
@@ -383,11 +355,6 @@ export default defineComponent({
         ({ id: preset.id, active: (preset.id === presets.value.active) }))),
       selectPreset (id: string) {
         presets.value.active = id
-        if (focusManager) {
-          nextTick(() => {
-            focusManager.refreshContext()
-          })
-        }
       },
       makeTradeLink () {
         return `https://${getTradeEndpoint()}/trade/search/${itemFilters.value.trade.league}?q=${JSON.stringify(createTradeRequest(itemFilters.value, itemStats.value, props.item))}`

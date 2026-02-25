@@ -19,8 +19,24 @@ export class FocusManager {
   }
 
   setupFocus (rootContainer: HTMLElement) {
+    // Clear context stack for new container
+    this.contextStack = []
     this.rootContainer = rootContainer
     this.updateContext(rootContainer)
+  }
+
+  clearFocus () {
+    const context = this.getCurrentContext()
+    if (!context) return
+
+    // Remove gamepad-focused class from all elements
+    document.querySelectorAll('.gamepad-focused').forEach(el => {
+      el.classList.remove('gamepad-focused')
+    })
+
+    // Clear the focused element
+    this.focusedElement.value = null
+    context.currentIndex = 0
   }
 
   private setupGlobalListeners () {
@@ -299,33 +315,36 @@ export class FocusManager {
     if (!element) return
 
     if (element instanceof HTMLInputElement && element.type === 'checkbox') {
-      element.checked = !element.checked
-      element.dispatchEvent(new Event('change', { bubbles: true }))
-      element.dispatchEvent(new Event('input', { bubbles: true }))
+      element.click()
       element.focus()
       return
     }
 
     if (element instanceof HTMLInputElement && element.type === 'radio') {
-      element.checked = true
-      element.dispatchEvent(new Event('change', { bubbles: true }))
-      element.dispatchEvent(new Event('input', { bubbles: true }))
+      element.click()
       element.focus()
       return
     }
 
     if (element.tagName === 'BUTTON') {
-      const gamepadActivation = this.focusedElement.value?.classList.contains('gamepad-focused')
-      if (gamepadActivation) {
-        element.setAttribute('data-gamepad-activation', 'true')
-      }
-
-      element.focus()
+      // Set attribute before click for gamepad activation
+      element.setAttribute('data-gamepad-activation', 'true')
       element.click()
+      element.focus()
+      // Remove attribute after click
+      setTimeout(() => {
+        element.removeAttribute('data-gamepad-activation')
+      }, 100)
       return
     }
 
-    element.click()
+    // For DIV and other elements with click handlers
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    })
+    element.dispatchEvent(clickEvent)
     element.focus()
   }
 
@@ -426,9 +445,23 @@ export class FocusManager {
 
     context.elements = newElements
 
+    // Try to keep focus on the same element (by class or text)
     let newIndex = 0
-    if (oldFocusedElement && newElements.includes(oldFocusedElement)) {
-      newIndex = newElements.indexOf(oldFocusedElement)
+    if (oldFocusedElement) {
+      // Try to find the same element by class
+      const oldClass = oldFocusedElement.className
+      const oldText = oldFocusedElement.textContent?.trim()
+      
+      newIndex = newElements.findIndex(el => {
+        if (el.className === oldClass) return true
+        if (oldText && el.textContent?.trim() === oldText) return true
+        return false
+      })
+      
+      // If not found, keep the same index
+      if (newIndex === -1) {
+        newIndex = Math.min(context.currentIndex, newElements.length - 1)
+      }
     }
 
     context.currentIndex = newIndex
@@ -467,17 +500,17 @@ export class FocusManager {
     const filteredElements = elements.filter(el => {
       // Skip elements with data-skip-focus
       if (el.getAttribute('data-skip-focus') === 'true') return false
-      
+
       // Skip hidden elements
       const computedStyle = window.getComputedStyle(el)
-      if (computedStyle.display === 'none' || 
-          computedStyle.visibility === 'hidden' || 
+      if (computedStyle.display === 'none' ||
+          computedStyle.visibility === 'hidden' ||
           computedStyle.opacity === '0') return false
-      
+
       // Skip elements with zero dimensions
       const rect = el.getBoundingClientRect()
       if (rect.width === 0 || rect.height === 0) return false
-      
+
       return true
     })
 

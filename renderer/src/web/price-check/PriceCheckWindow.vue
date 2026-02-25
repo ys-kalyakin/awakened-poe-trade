@@ -184,6 +184,7 @@ export default defineComponent({
       }
       closeBrowser()
       wm.show(props.config.wmId)
+
       checkPosition.value = e.position
       advancedCheck.value = e.focusOverlay
 
@@ -283,6 +284,9 @@ export default defineComponent({
       if (isBrowserShown.value || !Host.isElectron) {
         wm.hide(props.config.wmId)
       } else {
+        if (focusManager) {
+          focusManager.clearFocus()
+        }
         Host.sendEvent({ name: 'OVERLAY->MAIN::focus-game', payload: undefined })
       }
     }

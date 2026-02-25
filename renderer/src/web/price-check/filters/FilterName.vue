@@ -1,12 +1,19 @@
 <template>
   <div class="filter-name">
-    <button class="px-2 rounded border overflow-hidden text-ellipsis"
+    <div class="px-2 rounded border overflow-hidden text-ellipsis"
       :class="{ 'border-gray-500': showAsActive, 'border-gray-900': !showAsActive }"
-      @click="toggleAccuracy">{{ label }}</button>
-    <button v-if="filters.corrupted" class="px-2" @click="corrupted = !corrupted">
+      @click="toggleAccuracy"
+      tabindex="0"
+      data-focusable="true"
+      style="cursor: pointer; display: inline-block;">{{ label }}</div>
+    <div v-if="filters.corrupted" class="px-2" 
+      @click="toggleCorrupted"
+      tabindex="0"
+      data-focusable="true"
+      style="cursor: pointer; display: inline-block;">
       <span v-if="corrupted" class="text-red-500">{{ t('item.corrupted') }}</span>
       <span v-else class="text-gray-600">{{ t('item.not_corrupted') }}</span>
-    </button>
+    </div>
   </div>
 </template>
 
@@ -57,10 +64,17 @@ export default defineComponent({
       return filters.searchRelaxed?.disabled
     })
 
-    function toggleAccuracy () {
+    function toggleAccuracy (e: MouseEvent) {
       const { filters } = props
       if (filters.searchRelaxed) {
         filters.searchRelaxed.disabled = !filters.searchRelaxed.disabled
+      }
+    }
+    
+    function toggleCorrupted (e: MouseEvent) {
+      const { filters } = props
+      if (filters.corrupted) {
+        filters.corrupted.value = !filters.corrupted.value
       }
     }
 
@@ -74,6 +88,7 @@ export default defineComponent({
       label,
       showAsActive,
       toggleAccuracy,
+      toggleCorrupted,
       corrupted
     }
   }

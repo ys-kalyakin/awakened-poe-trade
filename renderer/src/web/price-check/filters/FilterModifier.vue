@@ -165,17 +165,9 @@ export default defineComponent({
     }
 
     function toggleFilter (e: MouseEvent) {
-      const isGamepad = (e as any).gamepadActivation === true || (e.currentTarget as HTMLElement).getAttribute('data-gamepad-activation') === 'true'
-
-      if (isGamepad) {
-        props.filter.disabled = !props.filter.disabled
-        ctx.emit('filter-toggled')
-      } else if (e.detail === 0) {
-        ctx.emit('submit')
-      } else {
-        props.filter.disabled = !props.filter.disabled
-        ctx.emit('filter-toggled')
-      }
+      // Always toggle the filter for both mouse and gamepad
+      props.filter.disabled = !props.filter.disabled
+      ctx.emit('filter-toggled')
     }
 
     const { t } = useI18n()

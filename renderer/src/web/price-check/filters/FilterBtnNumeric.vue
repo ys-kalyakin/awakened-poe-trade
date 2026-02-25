@@ -1,6 +1,10 @@
 <template>
-  <div :class="[$style.btn, { [$style.active]: !filter.disabled }]">
-    <button @click="filter.disabled = !filter.disabled" class="pl-2">{{ name }}</button>
+  <div :class="[$style.btn, { [$style.active]: !filter.disabled }]" 
+    @click="handleClick"
+    tabindex="0"
+    data-focusable="true"
+    style="display: inline-flex; align-items: center; cursor: pointer;">
+    <span class="pl-2">{{ name }}</span>
     <input :class="$style.input" step="any" type="number"
       v-model.number="inputMin"
       @focus="inputFocus"
@@ -38,6 +42,22 @@ export default defineComponent({
     }
   },
   setup (props) {
+    const handleClick = (e: MouseEvent) => {
+      console.log('[FilterBtnNumeric] handleClick called:', {
+        name: props.name,
+        filterDisabled: props.filter.disabled
+      })
+      
+      // Check if this is a gamepad activation (check attribute on the event target)
+      const target = e.target as HTMLElement
+      const isGamepad = target.getAttribute('data-gamepad-activation') === 'true'
+      
+      console.log('[FilterBtnNumeric] isGamepad:', isGamepad, 'target:', target.tagName)
+      
+      props.filter.disabled = !props.filter.disabled
+      console.log('[FilterBtnNumeric] filter.disabled changed to:', props.filter.disabled)
+    }
+
     const _inputMin = ref<number | ''>('')
     watch(() => props.filter, (filter) => {
       _inputMin.value = filter.value
