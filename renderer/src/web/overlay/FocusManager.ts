@@ -97,7 +97,7 @@ export class FocusManager {
     }
 
     const currentElement = context.elements[context.currentIndex]
-    
+
     // Always use circular navigation based on DOM order
     const nextElement = this.findCircularNextElement(currentElement, context.elements, direction)
 
@@ -451,13 +451,13 @@ export class FocusManager {
       // Try to find the same element by class
       const oldClass = oldFocusedElement.className
       const oldText = oldFocusedElement.textContent?.trim()
-      
+
       newIndex = newElements.findIndex(el => {
         if (el.className === oldClass) return true
         if (oldText && el.textContent?.trim() === oldText) return true
         return false
       })
-      
+
       // If not found, keep the same index
       if (newIndex === -1) {
         newIndex = Math.min(context.currentIndex, newElements.length - 1)

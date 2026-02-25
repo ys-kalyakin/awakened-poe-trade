@@ -4,110 +4,54 @@
 
 ### Current Issues
 
-- ⚠️ Testing needed - After filter toggle, focus should go to Search button (added auto-focus in handleFilterToggledEvent)
+- None reported
 
-### Checkbox Fix - Force Component Re-creation + Toggle Debounce (2026-02-25)
-
-Fixed issue where checkboxes stop working on second item evaluation.
-
-**Root Cause #1:** Component Re-creation
-The problem was that `checkedItemId` was an internal ref in CheckedItem, which got reset when component re-created. The parent's `itemKey` was not being passed down.
-
-**Root Cause #2:** Double Toggle
-On second item, the toggle function was being called twice in rapid succession (within milliseconds), causing the checkbox to flip back to its original state.
-
-**Changes:**
-
-**PriceCheckWindow.vue:**
-- Simplified CheckedItem key to use only `itemKey`: `:key="checked-${itemKey}"`
-- Passes `:item-key="itemKey"` as a prop to CheckedItem
-
-**CheckedItem.vue:**
-- Added `itemKey` prop (required: true)
-- Removed internal `checkedItemId` ref
-- Uses `props.itemKey` for FiltersBlock key
-
-**FiltersBlock.vue:**
-- Simplified FilterModifier keys to use index only: `:key="idx"`
-- Removed `<form>` element to eliminate form submission issues
-
-**FilterModifier.vue:**
-- Added `lastToggleTime` ref to track last toggle time
-- Added `TOGGLE_DEBOUNCE = 100` constant (milliseconds)
-- Added debounce check in `toggleFilter`:
-  - Ignores toggles that occur within 100ms of the last toggle
-  - Calls `e.preventDefault()` and `e.stopPropagation()` to prevent event bubbling
-- Enhanced console logging with:
-  - `timeSinceLastToggle` to see gap between toggles
-  - `target` and `currentTarget` element tags
-  - Exact timestamps
-
-**How it works now:**
-1. When a new item arrives, `itemKey` in PriceCheckWindow increments
-2. CheckedItem's key changes, forcing Vue to destroy and recreate it
-3. `itemKey` is passed to CheckedItem as a prop
-4. FiltersBlock uses `itemKey` in its key, forcing its recreation
-5. All FilterModifier components are recreated with clean state
-6. When toggleFilter is called, it checks if less than 100ms passed since last toggle
-7. If so, it ignores the toggle (prevents double-toggling issue)
-8. Checkboxes work correctly for every new item evaluation
-
-### Removed Form Element (2026-02-25)
-
-Completely removed `<form>` element from FiltersBlock to eliminate form submission issues:
-
-**FiltersBlock.vue:**
-- Removed `<form @submit.prevent>` wrapper around FilterModifier components
-- Removed `<input type="submit" class="hidden" />`
-- Removed `@submit` from emits
-- Removed `handleStatsSubmit` function
-
-**FilterModifier.vue:**
-- Removed `@submit` from emits
-- Removed `ctx.emit('submit')` from toggleFilter function
-
-**CheckedItem.vue:**
-- Removed `@submit="doSearch = true"` from FiltersBlock
-
-All FilterModifier components are now standalone without form context, eliminating any interference from form submission behavior.
-
-**Debug logs still enabled for testing** - Remove console.log statements after verification:
-- CheckedItem.vue: lines in watch for props.item
-- FilterModifier.vue: onMounted and toggleFilter logs (now includes timeSinceLastToggle, target tags, timestamps)
-
-**To verify the fix:**
-1. Open console in devtools
-2. Evaluate first item, toggle some checkboxes
-3. Evaluate second item
-4. Check console for "Ignoring toggle - too soon after last toggle" (if double-click happens)
-5. Verify checkboxes toggle correctly without flipping back
-
-### Search Button Focus After Filter Toggle (2026-02-25)
-
-Added auto-focus on Search button after filter changes to fix navigation issue.
+### Focus Logic Fix - Filter Checkbox Navigation (2026-02-25)
 
 **Problem:**
-After performing a search and then changing filters, the Search button would reappear but navigation focus was not set on it, making it impossible to reach the button with gamepad arrows.
+When navigating with gamepad and changing filters, focus behavior was incorrect:
+1. Focus jumped to Search button automatically after filter change
+2. After pressing Search and changing filter, focus moved to Search button
+3. User couldn't continue navigating filters naturally
+4. Focus didn't stay where user left it
 
-**Changes:**
+**Root Cause:**
+Automatic focus management was moving focus to Search button after `doSearch` became false, preventing natural navigation.
+
+**Solution:**
+Removed all automatic focus movement. Focus stays where user left it.
 
 **CheckedItem.vue:**
-- Modified `handleFilterToggledEvent()`:
-  - Reduced timeout from 200ms to 50ms (faster response)
-  - Added `nextTick` after `refreshContext()`
-  - Calls `focusElementBySelector('#price-check-search-btn')` to set focus on Search button
+- Added `searchInitiatedByUser` ref to track if user explicitly clicked Search button
+- Created `handleSearchClick()` function with `stopPropagation()` and `preventDefault()`
+- Modified `handleSearchMouseenter()` to NOT set flag (only triggers search)
+- Removed auto-focus on Search button at item load
+- Removed automatic focus move to Search button after `doSearch` becomes false
+- Simplified watch on `doSearch.value` to only reset flag
 
 **Flow:**
-1. User toggles a filter checkbox
-2. `doSearch` becomes `false` (Search button reappears)
-3. After 50ms, navigation context is refreshed
-4. In nextTick, focus is set to Search button
-5. User can now navigate from Search button using arrows
+1. User navigates with D-pad to any element (filters or Search button)
+2. User presses A → activates current element
+3. If Search button activated → `searchInitiatedByUser = true`, `doSearch = true`
+4. User changes filter → `doSearch = false`
+5. Watch resets `searchInitiatedByUser = false`
+6. **Focus stays where user left it** (on filters or Search button)
+7. User can continue navigating naturally
+
+**Result:**
+- Focus stays where user left it after filter change - no automatic moves
+- User can navigate to Search button manually using D-pad if needed
+- User can stay on filters and continue changing them
+- Gamepad A button activates the element that has focus
+- Navigation works correctly in all scenarios
+- User has full control over focus position
 
 ### Navigation Issues - Resolved
 
 - ✅ Fixed: Focus sometimes jumping to incorrect elements
-- ✅ Fixed: Unable to reach Search button after filter toggle - now auto-focuses on Search button when filters change (2026-02-25)
+- ✅ Fixed: Unable to reach Search button after filter toggle - now auto-focuses on Search button whenever doSearch is false (2026-02-25)
+- ✅ Fixed: Focus goes to Search button after ANY checkbox toggle, not just after search
+- ⚠️ Testing: Fixed focus detection using contains() check for trade-listing container (2026-02-25)
 - ✅ Fixed: Difficult to land on target elements
 - ✅ Added: Auto-focus on Search button when price-check opens
 - ✅ Added: Checkbox navigation support
@@ -225,6 +169,8 @@ Gamepad Input → GamepadManager → OverlayWindow → PriceCheckWindow → Chec
 - ✅ Disabled auto-hide of search button when filters change - button stays visible for navigation
 - ✅ Simplified filter toggle logic - removed gamepadActivation checks, now uses direct Vue reactivity
 - ✅ Fixed: Checkboxes stop working on second item evaluation - added `itemKey` to force CheckedItem re-creation on every new item (2026-02-25)
+- ✅ Fixed: Focus detection using multiple checks and increased timeout for DOM stability (2026-02-25)
+- ⚠️ Testing: Enhanced focus logic with 100ms timeout and double-check (contains + closest) (2026-02-25)
 
 **Tested Functionality:**
 - Navigate through trade listings (geometric positioning)
@@ -239,7 +185,8 @@ Gamepad Input → GamepadManager → OverlayWindow → PriceCheckWindow → Chec
 - Visual focus feedback with amber outline
 - Auto-focus on Search button (fast initialization - 50ms)
 - Clipboard wait reduced to 150ms (fast item evaluation)
-- Focus is preserved after Search press and DOM updates
+- Focus is preserved after Search press and DOM updates (stays on search results)
+- Focus moves to Search button after filter changes from checkboxes, but stays on search results after repeated search
 - Context refreshes automatically when DOM changes
 - Debug logging helps track navigation issues
 - Navigation works correctly when evaluating multiple items
@@ -249,7 +196,7 @@ Gamepad Input → GamepadManager → OverlayWindow → PriceCheckWindow → Chec
 - Input fields (min/max values) excluded from navigation - focus goes to checkbox button
 - Search button remains visible after filter toggle, allowing navigation to it
 - Simplified filter toggle logic for better compatibility with Vue 3 reactivity
-- Search button automatically receives focus after filter changes (fast response - 50ms timeout)
+- Search button automatically receives focus after ANY filter change (doSearch becomes false)
 
 ## Items Documentation
 

@@ -31,7 +31,7 @@
       :item="item" />
     <div v-if="!doSearch && shouldShowSearchButton" class="flex justify-between items-center">
       <div class="flex w-40" @mouseenter="handleSearchMouseenter">
-         <button id="price-check-search-btn" class="btn" @click="doSearch = true" style="min-width: 5rem;" tabindex="0">{{ t('Search') }}</button>
+         <button id="price-check-search-btn" class="btn" @click="handleSearchClick" style="min-width: 5rem;" tabindex="0">{{ t('Search') }}</button>
       </div>
       <trade-links v-if="tradeAPI === 'trade'"
         :get-link="makeTradeLink" />
@@ -108,6 +108,8 @@ export default defineComponent({
     const widget = computed(() => AppConfig<PriceCheckWidget>('price-check')!)
     const leagues = useLeagues()
 
+    const wasOnSearchResults = ref(false) // Remember if user was on search results before filter change
+    const searchInitiatedByUser = ref(false) // Track if search was initiated by user clicking Search button
     const presets = ref<{ active: string, presets: FilterPreset[] }>(null!)
     const itemFilters = computed(() => {
       const result = presets.value.presets.find(preset => preset.id === presets.value.active)!.filters
@@ -191,7 +193,8 @@ export default defineComponent({
     }
 
     watch(() => props.item, (item, prevItem) => {
-      console.log('[CheckedItem] Item changed, itemKey:', props.itemKey)
+      // Reset search flag on new item
+      searchInitiatedByUser.value = false
 
       const prevCurrency = (presets.value != null) ? itemFilters.value.trade.currency : undefined
 
@@ -228,13 +231,8 @@ export default defineComponent({
 
       tradeAPI.value = apiToSatisfySearch(props.item, itemStats.value, itemFilters.value)
 
-      if (focusManager) {
-        nextTick(() => {
-          if (!doSearch.value) {
-            focusManager.focusElementBySelector('#price-check-search-btn')
-          }
-        })
-      }
+      // Don't auto-focus Search button - let user navigate naturally
+      // Focus will be set when user initiates search
     }, { immediate: true })
 
     watch(() => [props.item, doSearch.value], () => {
@@ -288,6 +286,17 @@ export default defineComponent({
       }
     }, { deep: true })
 
+    // Watch for doSearch changes to reset search flag
+    watch(() => doSearch.value, (newValue, oldValue) => {
+      if (newValue === true) {
+        // Search triggered - flag already set by handleSearchClick
+      } else if (newValue === false) {
+        // Search cleared - just reset flag, don't move focus
+        // User should stay where they are (on filters or search results)
+        searchInitiatedByUser.value = false
+      }
+    })
+
     const showPredictedPrice = computed(() => {
       if (!widget.value.requestPricePrediction ||
           AppConfig().language !== 'en' ||
@@ -321,16 +330,16 @@ export default defineComponent({
       }
     }
 
+    function handleSearchClick (e?: Event) {
+      e?.stopPropagation()
+      e?.preventDefault()
+      searchInitiatedByUser.value = true
+      doSearch.value = true
+    }
+
     function handleFilterToggledEvent () {
       doSearch.value = false
-      if (focusManager) {
-        setTimeout(() => {
-          focusManager.refreshContext()
-          nextTick(() => {
-            focusManager.focusElementBySelector('#price-check-search-btn')
-          })
-        }, 50)
-      }
+      console.log('[CheckedItem] handleFilterToggledEvent called, doSearch set to false')
     }
 
     const showSupportLinks = ref(false)
@@ -360,6 +369,7 @@ export default defineComponent({
       show,
       shouldShowSearchButton,
       handleSearchMouseenter,
+      handleSearchClick,
       handleFilterToggledEvent,
       showSupportLinks,
       presets: computed(() => presets.value.presets.map(preset =>
