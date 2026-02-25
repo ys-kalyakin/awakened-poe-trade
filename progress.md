@@ -50,6 +50,16 @@
 - ✅ Fixed: Trade links showing next to "Loading..." - removed Trade links from Loading block
 - ✅ Fixed: filter-toggled event not propagating from FiltersBlock to CheckedItem - added `@filter-toggled="$emit('filter-toggled')"` proxy
 
+### Navigation Algorithm - Fixed (2026-02-25)
+
+- ✅ Fixed: Navigation directions inverted (up/down/left/right confused)
+- ✅ Fixed: Algorithm now uses proper directional scoring with deadzone (10px)
+- ✅ Fixed: Elements are filtered by direction first, then scored by distance + alignment
+- ✅ Fixed: Up/Down now properly check Y axis with horizontal alignment preference
+- ✅ Fixed: Left/Right now properly check X axis with vertical alignment preference
+- ✅ Improved: Scoring formula: `score = distance - directionScore` (lower is better)
+- ✅ Improved: Direction score rewards elements further in the target direction
+
 ## Gamepad Navigation Feature
 
 ### Status: ✅ Working (Improved)

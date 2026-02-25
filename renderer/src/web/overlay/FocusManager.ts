@@ -100,7 +100,7 @@ export class FocusManager {
     const centerX = currentRect.left + currentRect.width / 2
     const centerY = currentRect.top + currentRect.height / 2
 
-    let candidates: { element: HTMLElement, score: number, primaryScore: number, secondaryScore: number }[] = []
+    let candidates: { element: HTMLElement, score: number }[] = []
 
     for (const element of elements) {
       if (element === currentElement) continue
@@ -123,41 +123,59 @@ export class FocusManager {
 
       const dx = elCenterX - centerX
       const dy = elCenterY - centerY
+      const distance = Math.sqrt(dx * dx + dy * dy)
 
-      let primaryScore = 0
-      let secondaryScore = Math.abs(dx) + Math.abs(dy)
+      // Check if element is in the correct direction
       let isValidCandidate = false
+      let directionScore = 0
 
       switch (direction) {
         case 'up':
-          if (dy < 0) {
+          // Element must be above current (smaller Y)
+          if (elCenterY < centerY - 10) {
             isValidCandidate = true
-            primaryScore = -dy
+            // Prefer elements that are more above (smaller Y) and aligned horizontally
+            const verticalDist = centerY - elCenterY
+            const horizontalAlign = Math.abs(dx)
+            directionScore = verticalDist * 2 - horizontalAlign
           }
           break
         case 'down':
-          if (dy > 0) {
+          // Element must be below current (larger Y)
+          if (elCenterY > centerY + 10) {
             isValidCandidate = true
-            primaryScore = dy
+            // Prefer elements that are more below (larger Y) and aligned horizontally
+            const verticalDist = elCenterY - centerY
+            const horizontalAlign = Math.abs(dx)
+            directionScore = verticalDist * 2 - horizontalAlign
           }
           break
         case 'left':
-          if (dx < 0) {
+          // Element must be to the left (smaller X)
+          if (elCenterX < centerX - 10) {
             isValidCandidate = true
-            primaryScore = -dx
+            // Prefer elements that are more to the left (smaller X) and aligned vertically
+            const horizontalDist = centerX - elCenterX
+            const verticalAlign = Math.abs(dy)
+            directionScore = horizontalDist * 2 - verticalAlign
           }
           break
         case 'right':
-          if (dx > 0) {
+          // Element must be to the right (larger X)
+          if (elCenterX > centerX + 10) {
             isValidCandidate = true
-            primaryScore = dx
+            // Prefer elements that are more to the right (larger X) and aligned vertically
+            const horizontalDist = elCenterX - centerX
+            const verticalAlign = Math.abs(dy)
+            directionScore = horizontalDist * 2 - verticalAlign
           }
           break
       }
 
       if (isValidCandidate) {
-        const score = primaryScore + secondaryScore * 0.1
-        candidates.push({ element, score, primaryScore, secondaryScore })
+        // Lower score is better (closer and better aligned)
+        const score = distance - directionScore
+        candidates.push({ element, score })
       }
     }
 
@@ -165,7 +183,8 @@ export class FocusManager {
       return this.findCircularNextElement(currentElement, elements, direction)
     }
 
-    candidates.sort((a, b) => a.primaryScore - b.primaryScore || a.secondaryScore - b.secondaryScore)
+    // Sort by score (ascending - lower is better)
+    candidates.sort((a, b) => a.score - b.score)
     return candidates[0].element
   }
 
