@@ -125,49 +125,59 @@ export class FocusManager {
       const dy = elCenterY - centerY
       const distance = Math.sqrt(dx * dx + dy * dy)
 
-      // Check if element is in the correct direction
+      // Check if element is in the correct direction with deadzone
       let isValidCandidate = false
       let directionScore = 0
 
       switch (direction) {
         case 'up':
           // Element must be above current (smaller Y)
-          if (elCenterY < centerY - 10) {
+          // Use top edge comparison for more reliable detection
+          if (rect.top < currentRect.top - 5) {
             isValidCandidate = true
-            // Prefer elements that are more above (smaller Y) and aligned horizontally
+            // Prefer elements that are more above and aligned horizontally
             const verticalDist = centerY - elCenterY
             const horizontalAlign = Math.abs(dx)
-            directionScore = verticalDist * 2 - horizontalAlign
+            // Bonus for horizontal alignment
+            const alignmentBonus = horizontalAlign < 20 ? 50 : 0
+            directionScore = verticalDist * 3 + alignmentBonus - horizontalAlign
           }
           break
         case 'down':
           // Element must be below current (larger Y)
-          if (elCenterY > centerY + 10) {
+          // Use top edge comparison for more reliable detection
+          if (rect.top > currentRect.bottom + 5) {
             isValidCandidate = true
-            // Prefer elements that are more below (larger Y) and aligned horizontally
+            // Prefer elements that are more below and aligned horizontally
             const verticalDist = elCenterY - centerY
             const horizontalAlign = Math.abs(dx)
-            directionScore = verticalDist * 2 - horizontalAlign
+            // Bonus for horizontal alignment
+            const alignmentBonus = horizontalAlign < 20 ? 50 : 0
+            directionScore = verticalDist * 3 + alignmentBonus - horizontalAlign
           }
           break
         case 'left':
           // Element must be to the left (smaller X)
-          if (elCenterX < centerX - 10) {
+          if (rect.left < currentRect.left - 5) {
             isValidCandidate = true
-            // Prefer elements that are more to the left (smaller X) and aligned vertically
+            // Prefer elements that are more to the left and aligned vertically
             const horizontalDist = centerX - elCenterX
             const verticalAlign = Math.abs(dy)
-            directionScore = horizontalDist * 2 - verticalAlign
+            // Bonus for vertical alignment
+            const alignmentBonus = verticalAlign < 20 ? 50 : 0
+            directionScore = horizontalDist * 3 + alignmentBonus - verticalAlign
           }
           break
         case 'right':
           // Element must be to the right (larger X)
-          if (elCenterX > centerX + 10) {
+          if (rect.left > currentRect.right + 5) {
             isValidCandidate = true
-            // Prefer elements that are more to the right (larger X) and aligned vertically
+            // Prefer elements that are more to the right and aligned vertically
             const horizontalDist = elCenterX - centerX
             const verticalAlign = Math.abs(dy)
-            directionScore = horizontalDist * 2 - verticalAlign
+            // Bonus for vertical alignment
+            const alignmentBonus = verticalAlign < 20 ? 50 : 0
+            directionScore = horizontalDist * 3 + alignmentBonus - verticalAlign
           }
           break
       }
